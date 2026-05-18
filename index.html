@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Jabil · AI Tariff Calculation Engine</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.2.0/tabler-icons.min.css">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+<div class="app">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-row">
+        <div class="logo-mark">
+          <svg viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M7.5 1v2M7.5 12v2M1 7.5h2M12 7.5h2M2.87 2.87l1.41 1.41M10.72 10.72l1.41 1.41M12.13 2.87l-1.41 1.41M4.28 10.72l-1.41 1.41" stroke="#a09d96" stroke-width="1.4" stroke-linecap="round"/>
+            <circle cx="7.5" cy="7.5" r="2" fill="#cc785c"/>
+          </svg>
+        </div>
+        <span class="logo-wordmark">Jabil Trade AI</span>
+      </div>
+      <div class="logo-sub">Global Trade Compliance</div>
+    </div>
+    <nav class="nav">
+      <div class="nav-section">
+        <div class="nav-label">Workflow</div>
+        <div class="nav-item active"><i class="ti ti-file-invoice"></i> Batch Processing <span class="nav-badge warn">3</span></div>
+        <div class="nav-item"><i class="ti ti-ship"></i> All Shipments</div>
+        <div class="nav-item"><i class="ti ti-clock-history"></i> History</div>
+      </div>
+      <div class="nav-section">
+        <div class="nav-label">Intelligence</div>
+        <div class="nav-item"><i class="ti ti-world"></i> FTA Library</div>
+        <div class="nav-item"><i class="ti ti-bell"></i> Regulatory Feed <span class="nav-badge">2</span></div>
+        <div class="nav-item"><i class="ti ti-chart-bar"></i> Analytics</div>
+      </div>
+      <div class="nav-section">
+        <div class="nav-label">System</div>
+        <div class="nav-item"><i class="ti ti-lock"></i> Audit Trail</div>
+        <div class="nav-item"><i class="ti ti-settings"></i> Configuration</div>
+      </div>
+    </nav>
+    <div class="sidebar-user">
+      <div class="user-card">
+        <div class="avatar">SL</div>
+        <div>
+          <div class="user-name">Sarah Lim</div>
+          <div class="user-role">Trade Compliance Analyst</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <div class="main">
+
+    <div class="topbar">
+      <div class="topbar-crumb">
+        Batch Processing <i class="ti ti-chevron-right"></i> <strong>MY → US Export Lane</strong>
+      </div>
+      <div class="live-row"><div class="live-dot"></div> AI processing</div>
+      <button class="btn" style="margin-left:8px"><i class="ti ti-download"></i> Export</button>
+      <button class="btn btn-primary" onclick="openModal('batchModal')"><i class="ti ti-check"></i> Submit Batch</button>
+    </div>
+
+    <div class="content">
+
+      <!-- Page head -->
+      <div class="page-head-row">
+        <div>
+          <div class="page-eyebrow">Batch #TCA-2026-0518 · PCBAs</div>
+          <div class="page-title">Tariff Calculation Review</div>
+          <div class="page-meta">50 shipment items · Malaysia to United States · 18 May 2026</div>
+        </div>
+      </div>
+
+      <!-- Alert -->
+      <div class="alert-band" id="alertBand">
+        <i class="ti ti-alert-triangle alert-icon"></i>
+        <div class="alert-text"><strong>Regulatory Update —</strong> CPTPP Year 8 staged reductions effective 1 Jan 2026. Three items in this batch may qualify for updated preferential rates. Review flagged items before submission.</div>
+        <button class="alert-close" onclick="this.closest('.alert-band').style.display='none'"><i class="ti ti-x"></i></button>
+      </div>
+
+      <!-- KPIs -->
+      <div class="kpi-row">
+        <div class="kpi">
+          <div class="kpi-label">Items Processed</div>
+          <div class="kpi-val">47<span class="unit">/ 50</span></div>
+          <div class="kpi-note">3 pending <span class="hi">→</span></div>
+        </div>
+        <div class="kpi teal">
+          <div class="kpi-label">Time Saved</div>
+          <div class="kpi-val">12.2<span class="unit">h</span></div>
+          <div class="kpi-note">vs 12.5 h manual baseline</div>
+        </div>
+        <div class="kpi coral">
+          <div class="kpi-label">FTA Savings Identified</div>
+          <div class="kpi-val">$4,820</div>
+          <div class="kpi-note"><span class="pos">↑</span> 8 items on CPTPP preferential</div>
+        </div>
+        <div class="kpi red">
+          <div class="kpi-label">Items Flagged</div>
+          <div class="kpi-val">3</div>
+          <div class="kpi-note">Require manual review</div>
+        </div>
+      </div>
+
+      <!-- Main grid -->
+      <div class="grid-main">
+
+        <!-- Batch table -->
+        <div class="panel">
+          <div class="panel-head">
+            <i class="ti ti-list-check" style="color:var(--primary);font-size:15px"></i>
+            <span class="panel-title">Shipment Items</span>
+            <span class="panel-meta">47 processed · 3 pending</span>
+            <span class="pill pill-processing" id="batchPill">Processing</span>
+          </div>
+          <div class="progress-wrap">
+            <div class="progress-row">
+              <span class="progress-lbl">Batch completion</span>
+              <span class="progress-num">47 / 50</span>
+            </div>
+            <div class="progress-track"><div class="progress-fill" style="width:94%"></div></div>
+          </div>
+          <div class="filter-bar">
+            <button class="tab active" onclick="setFilter('all',this)">All (50)</button>
+            <button class="tab flag-tab" onclick="setFilter('flagged',this)"><i class="ti ti-alert-circle" style="font-size:11px"></i> Flagged (3)</button>
+            <button class="tab" onclick="setFilter('approved',this)"><i class="ti ti-check" style="font-size:11px"></i> Approved (14)</button>
+            <div class="flex1"></div>
+            <button class="bulk-btn" onclick="doBulk()"><i class="ti ti-checks" style="font-size:12px"></i> Bulk Approve ≥95%</button>
+          </div>
+          <div class="tbl-head">
+            <span>#</span><span>HS Code</span><span>Product</span>
+            <span>Confidence</span><span style="text-align:right">Duty</span>
+            <span>FTA</span><span style="text-align:right">Actions</span>
+          </div>
+          <div id="tblBody"></div>
+        </div>
+
+        <!-- Detail panel -->
+        <div class="detail-stack">
+
+          <div class="det-card">
+            <div class="det-head">
+              <i class="ti ti-package" style="color:var(--primary);font-size:15px"></i>
+              <span class="det-title">Item Detail — #14</span>
+              <span class="pill pill-flagged">Flagged</span>
+            </div>
+            <div class="det-body">
+              <div class="d-row"><span class="d-lbl">Product</span><span class="d-val" style="font-size:12px">PCB Assembly, 32-layer, BGA</span></div>
+              <div class="d-row"><span class="d-lbl">HS Code (AI)</span><span class="d-val mono">8534.00.9000</span></div>
+              <div class="d-row"><span class="d-lbl">Country of Origin</span><span class="d-val">Malaysia (Penang) <span style="color:var(--teal)">✓</span></span></div>
+              <div class="d-row"><span class="d-lbl">Shipment Value</span><span class="d-val mono">USD 148,200</span></div>
+              <div class="d-row"><span class="d-lbl">AI Confidence</span><span class="d-val amber">78% — Review Required</span></div>
+            </div>
+          </div>
+
+          <div class="det-card">
+            <div class="det-head">
+              <i class="ti ti-world" style="color:var(--teal);font-size:15px"></i>
+              <span class="det-title">FTA Match Analysis</span>
+            </div>
+            <div class="det-body">
+              <div class="fta-row fta-best-row">
+                <span class="fta-nm">CPTPP</span>
+                <span class="fta-rate" style="color:var(--teal)">0.0%</span>
+                <span class="fta-save">Save $2,964</span>
+                <span class="fta-badge fta-cptpp">Best</span>
+              </div>
+              <div class="fta-row">
+                <span class="fta-nm">ATIGA</span>
+                <span class="fta-rate">2.5%</span>
+                <span class="fta-save" style="color:var(--muted-soft)">Save $1,685</span>
+                <span class="fta-badge fta-other">Qualify</span>
+              </div>
+              <div class="fta-row">
+                <span class="fta-nm">MFN (PDK 2022)</span>
+                <span class="fta-rate" style="color:var(--muted-soft)">5.0%</span>
+                <span class="fta-save" style="color:var(--muted-soft)">—</span>
+                <span class="fta-badge fta-mfn">Default</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="det-card">
+            <div class="det-head">
+              <i class="ti ti-receipt" style="color:var(--amber);font-size:15px"></i>
+              <span class="det-title">Landed Cost Breakdown</span>
+            </div>
+            <div class="det-body">
+              <div class="cost-ln"><span class="lbl">Import Duty (CPTPP 0%)</span><span class="val" style="color:var(--teal)">$0.00</span></div>
+              <div class="cost-ln"><span class="lbl">Sales &amp; Service Tax</span><span class="val">$7,410.00</span></div>
+              <div class="cost-ln"><span class="lbl">Customs Processing Fee</span><span class="val">$185.00</span></div>
+              <div class="cost-ln"><span class="lbl">Freight (declared)</span><span class="val">$1,240.00</span></div>
+              <div class="cost-ln"><span class="lbl">Insurance</span><span class="val">$296.40</span></div>
+              <div class="cost-total"><span>Total Landed Cost</span><span class="val">USD 157,331.40</span></div>
+            </div>
+          </div>
+
+          <div class="det-card">
+            <div class="det-head">
+              <i class="ti ti-brain" style="color:var(--primary);font-size:15px"></i>
+              <span class="det-title">AI Reasoning Log</span>
+              <span style="font-size:10.5px;color:var(--muted-soft);font-family:var(--mono)">v2.1.4</span>
+            </div>
+            <div class="det-body">
+              <div class="reason-item">
+                <i class="ti ti-check ri-ico" style="color:var(--teal)"></i>
+                <span class="ri-txt">HS Chapter 85 selected over Ch. 90. <strong>32-layer BGA confirms printed circuit assembly</strong> (8534), not standalone instrument. Subheading confirmed.</span>
+              </div>
+              <div class="reason-item">
+                <i class="ti ti-alert-triangle ri-ico" style="color:var(--warning)"></i>
+                <span class="ri-txt"><strong>Flagged: BGA packaging ambiguity.</strong> Supplier declaration describes component as "multi-chip module" — may alternatively classify under 8542. Confidence 78%. Review required.</span>
+              </div>
+              <div class="reason-item">
+                <i class="ti ti-check ri-ico" style="color:var(--teal)"></i>
+                <span class="ri-txt">CPTPP RoO satisfied: <strong>RVC ≥ 40%</strong> confirmed from BoM. CoO verified via OCR (SUP-PG-2026-0441.pdf).</span>
+              </div>
+            </div>
+            <div class="approval-bar">
+              <button class="act-btn act-approve" onclick="approveItem()"><i class="ti ti-check" style="font-size:13px"></i> Approve</button>
+              <button class="act-btn act-edit" onclick="openModal('editModal')"><i class="ti ti-edit" style="font-size:13px"></i> Edit</button>
+              <button class="act-btn act-escalate" onclick="openModal('escalateModal')"><i class="ti ti-arrow-up-right" style="font-size:13px"></i> Escalate</button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Bottom -->
+      <div class="grid-bottom">
+        <div class="panel">
+          <div class="panel-head">
+            <i class="ti ti-lock" style="color:var(--primary);font-size:15px"></i>
+            <span class="panel-title">Immutable Audit Trail</span>
+            <span class="panel-meta">Batch #TCA-2026-0518</span>
+          </div>
+          <div style="padding:0 var(--sp-lg)">
+            <div class="audit-row">
+              <span class="audit-time">09:42:07 UTC</span>
+              <i class="ti ti-check audit-ico" style="color:var(--success)"></i>
+              <span class="audit-msg"><strong>Sarah Lim</strong> approved item #07 (8534.00.1000) — CPTPP 0% applied. Duty: $0.00</span>
+            </div>
+            <div class="audit-row">
+              <span class="audit-time">09:41:33 UTC</span>
+              <i class="ti ti-edit audit-ico" style="color:var(--amber)"></i>
+              <span class="audit-msg"><strong>Sarah Lim</strong> overrode item #11 to 8542.31.0000. Reason: "Multi-chip module confirmed by supplier datasheet"</span>
+            </div>
+            <div class="audit-row">
+              <span class="audit-time">09:40:15 UTC</span>
+              <i class="ti ti-checks audit-ico" style="color:var(--teal)"></i>
+              <span class="audit-msg">Bulk approval: <strong>12 items</strong> ≥95% confidence approved by Sarah Lim. Model v2.1.4.</span>
+            </div>
+            <div class="audit-row">
+              <span class="audit-time">09:38:02 UTC</span>
+              <i class="ti ti-robot audit-ico" style="color:var(--primary)"></i>
+              <span class="audit-msg">AI engine processed 47 items. Feed: <strong>2026-05-18T09:30Z</strong>. CPTPP Year 8 rates applied.</span>
+            </div>
+            <div class="audit-row">
+              <span class="audit-time">09:37:51 UTC</span>
+              <i class="ti ti-file-import audit-ico" style="color:var(--muted-soft)"></i>
+              <span class="audit-msg">Batch ingested from SAP S/4HANA via OData. 50 records · 50 HS codes · 50 supplier PDFs parsed.</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <i class="ti ti-broadcast" style="color:var(--amber);font-size:15px"></i>
+            <span class="panel-title">Live Regulatory Feed</span>
+            <span class="panel-meta">Synced 09:30 UTC</span>
+            <div class="live-dot" style="margin-left:4px"></div>
+          </div>
+          <div style="padding:0 var(--sp-lg)">
+            <div class="reg-row">
+              <div class="reg-dot hi"></div>
+              <div class="reg-content">
+                <div class="reg-title">USTR Section 301 — Electronics HS 8534</div>
+                <div class="reg-meta">Duty rate change pending review · US CBP · 15 May 2026</div>
+              </div>
+              <span class="reg-tag tag-new">NEW</span>
+            </div>
+            <div class="reg-row">
+              <div class="reg-dot mid"></div>
+              <div class="reg-content">
+                <div class="reg-title">CPTPP Year 8 — Staged reductions active</div>
+                <div class="reg-meta">0% rate on 127 MY→US HS codes · effective 1 Jan 2026</div>
+              </div>
+              <span class="reg-tag tag-upd">UPDATE</span>
+            </div>
+            <div class="reg-row">
+              <div class="reg-dot lo"></div>
+              <div class="reg-content">
+                <div class="reg-title">JKDM PDK 2022 Amendment #3</div>
+                <div class="reg-meta">SST reclassification for Ch. 85 components · JKDM</div>
+              </div>
+              <span class="reg-tag tag-inf">INFO</span>
+            </div>
+            <div class="reg-row">
+              <div class="reg-dot lo"></div>
+              <div class="reg-content">
+                <div class="reg-title">MITI eTrade — Export permit threshold revised</div>
+                <div class="reg-meta">Dual-use items threshold updated · MITI · 10 May 2026</div>
+              </div>
+              <span class="reg-tag tag-inf">INFO</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Success -->
+<div class="overlay" id="approvedModal">
+  <div class="modal">
+    <div class="modal-success">
+      <div class="success-ring"><i class="ti ti-check"></i></div>
+      <div class="success-title">Item Approved</div>
+      <div class="success-sub">Item #14 approved by Sarah Lim at 09:43:12 UTC.<br>Audit entry created and queued for SAP writeback.</div>
+      <button class="btn btn-primary" onclick="closeModal('approvedModal')">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Edit -->
+<div class="overlay" id="editModal">
+  <div class="modal">
+    <div class="modal-head">
+      <i class="ti ti-edit" style="color:var(--teal);font-size:18px"></i>
+      <span class="modal-title">Override HS Code — Item #14</span>
+      <button class="modal-close" onclick="closeModal('editModal')"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="ai-rec-box">
+        <div class="ai-rec-label">AI Recommended</div>
+        <div class="ai-rec-value">8534.00.9000</div>
+      </div>
+      <div class="field"><label>Override HS Code</label><input type="text" value="8542.31.0000"></div>
+      <div class="field"><label>Reason for override <span class="required">*</span></label><textarea rows="3">Multi-chip module confirmed by supplier datasheet Rev.C. Reclassified as IC per HS 8542.31.</textarea></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeModal('editModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="closeModal('editModal')"><i class="ti ti-check"></i> Save Override</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Escalate -->
+<div class="overlay" id="escalateModal">
+  <div class="modal">
+    <div class="modal-head">
+      <i class="ti ti-arrow-up-right" style="color:var(--amber);font-size:18px"></i>
+      <span class="modal-title">Escalate to Senior Analyst</span>
+      <button class="modal-close" onclick="closeModal('escalateModal')"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="field"><label>Assign to</label>
+        <select>
+          <option>James Tan — Senior Trade Compliance Analyst</option>
+          <option>Priya Nair — Compliance Manager</option>
+        </select>
+      </div>
+      <div class="field"><label>Notes</label><textarea rows="3">32-layer BGA — unclear if product meets 8534 (PCB) or 8542 (IC). Supplier datasheet ambiguous. Please advise.</textarea></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeModal('escalateModal')">Cancel</button>
+      <button class="btn btn-amber" onclick="closeModal('escalateModal')"><i class="ti ti-send"></i> Send to Senior</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Submit -->
+<div class="overlay" id="batchModal">
+  <div class="modal">
+    <div class="modal-head">
+      <i class="ti ti-checks" style="color:var(--teal);font-size:18px"></i>
+      <span class="modal-title">Submit Batch to SAP S/4HANA</span>
+      <button class="modal-close" onclick="closeModal('batchModal')"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="submit-stats">
+        <div class="submit-stat">
+          <div class="submit-stat-label">Approved</div>
+          <div class="submit-stat-value teal">47</div>
+          <div class="submit-stat-note">items ready</div>
+        </div>
+        <div class="submit-stat">
+          <div class="submit-stat-label">Pending Review</div>
+          <div class="submit-stat-value red">3</div>
+          <div class="submit-stat-note">items flagged</div>
+        </div>
+      </div>
+      <div class="submit-warning">
+        <i class="ti ti-alert-triangle"></i>
+        3 flagged items remain in queue — not included in this submission.
+      </div>
+      <div class="submit-desc">
+        Submitting will write <strong>47 approved duty figures</strong> to SAP S/4HANA, tagged with your employee ID (SL-04412) and timestamp. A PDF compliance report will be archived automatically.
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeModal('batchModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="submitBatch()"><i class="ti ti-check"></i> Confirm &amp; Submit 47 Items</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/data.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
