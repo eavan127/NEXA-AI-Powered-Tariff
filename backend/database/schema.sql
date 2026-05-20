@@ -150,6 +150,11 @@ CREATE TABLE gazette_alerts (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS config (
+    key    TEXT PRIMARY KEY,
+    value  TEXT
+);
+
 -- indexes to speed up common queries 
 -- ivfflate a special algorithm for vector math (similarity search) = faster retrieval
 CREATE INDEX ON hs_reference USING ivfflat(embedding vector_cosine_ops);
