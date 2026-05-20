@@ -38,13 +38,14 @@ async def on_startup(app:FastAPI):
         print(f"Ollama connection failed:{e}")
     
     try:
-        from schduler import start_schduler
-        start_schduler(app)
-        print("Schedular started")
+        from scheduler import start_scheduler
+        start_scheduler(app)
+        print("Scheduler started")
     except ImportError:
         print("Scheduler not available yet")
 
-app = FastAPI(title="Nexa AI tariff",version="1.0.0")
+app = FastAPI(title="Nexa AI tariff",version="1.0.0",lifespan=lifespan)
+# the lifespan call the function lifespan above
 
 app.add_middleware(
     CORSMiddleware,
