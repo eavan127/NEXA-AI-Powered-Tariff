@@ -6,7 +6,7 @@ httpx
 pdfplumber
 playwright
 feedparser
-apschduler
+apscheduler
 python-multipart
 python-dotenv
 asyncpg
