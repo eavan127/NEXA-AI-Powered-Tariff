@@ -17,6 +17,6 @@ class Settings(BaseSettings): #creating own class name and inherit from base set
 
     class Config: #base settings look for inner config file
         # so you need to tell where is it
-        env_file = ".env"
+        env_file = "../.env"
 
 settings = Settings()
