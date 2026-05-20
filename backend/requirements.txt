@@ -1,0 +1,13 @@
+fastapi
+uvicorn[standard]
+supabase
+pydantic-settings
+httpx
+pdfplumber
+playwright
+feedparser
+apschduler
+python-multipart
+python-dotenv
+asyncpg
+psycopg2-binary
