@@ -13,7 +13,8 @@ class Settings(BaseSettings): #creating own class name and inherit from base set
     SAP_MOCK: bool = True 
     E2OPEN_MOCK: bool = True 
     SUPERFEEDR_TOKEN : str = ""
-    GAZETTE_RSS_URL: str = ""
+    GAZETTE_RSS_URL: str = "https://lom.agc.gov.my/index.php"
+    MITI_FTA_URL: str = "https://fta.miti.gov.my/"
 
     class Config: #base settings look for inner config file
         # so you need to tell where is it
