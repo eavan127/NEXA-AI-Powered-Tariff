@@ -5,6 +5,15 @@ from apscheduler.triggers.interval import IntervalTrigger
 from config import settings
 
 try:
+    from ingestion.tariff_sync import sync_tariff_rates, seed_tariff_data
+except ImportError:
+    async def sync_tariff_rates():
+        print("[scheduler] tariff_sync not available yet")
+        return {}
+    async def seed_tariff_data():
+        print("[scheduler] seed_tariff_data not available yet")
+
+try:
     from ingestion.fta_scraper import scrape_miti_fta_rates, seed_fta_data
 except ImportError:
     async def scrape_miti_fta_rates():

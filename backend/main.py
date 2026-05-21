@@ -1,3 +1,4 @@
+import os
 from contextlib import asynccontextmanager
 # write startup and shutdown events
 from fastapi import FastAPI
@@ -8,6 +9,9 @@ import httpx
 from supabase import create_client 
 # creates your supaabase connection
 from config import settings 
+from api.routes import router
+from fastapi.staticfiles import StaticFiles
+# cross origin resource sharing
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -50,7 +54,7 @@ app = FastAPI(title="Nexa AI tariff",version="1.0.0",lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     # allow request from frontend
-    allow_origins=["http://localhost:5173"],
+    allow_origins=["http://localhost:5173","http://localhost:8000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -66,5 +70,7 @@ async def health_check():
         "version":"1.0.0"
     }
 
-
+app.include_router(router)
+STATIC_DIR = os.path.join(os.path.dirname(__file__), "..")
+app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="static")
 
