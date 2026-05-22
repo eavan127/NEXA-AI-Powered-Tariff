@@ -18,7 +18,6 @@ def get_shipment_description(shipment_id: str, supabase: Client) -> dict:
 
     shipment = result.data
 
-    # Get e2open hs_code from bom_items
     e2open_hs_code = None
     if shipment.get("bom_items"):
         bom = shipment["bom_items"]
@@ -26,7 +25,8 @@ def get_shipment_description(shipment_id: str, supabase: Client) -> dict:
             e2open_hs_code = bom[0].get("hs_code")
 
     return {
-        "shipment_id": shipment_id,
+        "shipment_id": shipment["id"],        # ← real UUID now
+        "sap_shipment_id": shipment_id,       # ← keep original for reference
         "product_description": shipment["product_description"],
         "e2open_hs_code": e2open_hs_code
     }
@@ -51,23 +51,50 @@ def embed_description(product_description: str) -> list:
 # ─────────────────────────────────────────
 # STEP 3: Search hs_reference with pgvector
 def search_hs_reference(embedding: list, supabase: Client) -> list:
+    import math
     
-    # Convert embedding list to text format
-    # New RPC function accepts text and converts internally
-    vector_str = "[" + ",".join(str(float(x)) for x in embedding) + "]"
+    # Fetch all hs_reference rows
+    result = supabase.table("hs_reference") \
+        .select("id, hs_code, description, explanatory_notes, embedding") \
+        .not_.is_("embedding", "null") \
+        .execute()
     
-    result = supabase.rpc(
-        "match_hs_reference",
-        {
-            "query_embedding": vector_str,
-            "match_count": 3
-        }
-    ).execute()
-
     if not result.data:
-        raise ValueError("No HS reference matches found")
-
-    return result.data
+        raise ValueError("No HS reference data found")
+    
+    def cosine_similarity(vec1: list, vec2) -> float:
+        # vec2 comes as string from database — convert it
+        if isinstance(vec2, str):
+            vec2 = [float(x) for x in vec2.strip("[]").split(",")]
+        
+        dot = sum(a * b for a, b in zip(vec1, vec2))
+        mag1 = math.sqrt(sum(a * a for a in vec1))
+        mag2 = math.sqrt(sum(b * b for b in vec2))
+        
+        if mag1 == 0 or mag2 == 0:
+            return 0.0
+        return dot / (mag1 * mag2)
+    
+    # Score every row
+    scored = []
+    for row in result.data:
+        sim = cosine_similarity(embedding, row["embedding"])
+        scored.append({
+            "id": row["id"],
+            "hs_code": row["hs_code"],
+            "description": row["description"],
+            "explanatory_notes": row["explanatory_notes"],
+            "similarity": sim
+        })
+    
+    # Sort and return top 3
+    scored.sort(key=lambda x: x["similarity"], reverse=True)
+    top_3 = scored[:3]
+    
+    print(f"[Step 3] Top match: {top_3[0]['hs_code']} "
+          f"({round(top_3[0]['similarity']*100,1)}%)")
+    
+    return top_3
 
 # ─────────────────────────────────────────
 # STEP 4: Ask llama3.2 to pick best HS code
@@ -121,11 +148,11 @@ RESPOND IN THIS EXACT JSON FORMAT (no other text):
     response = httpx.post(
         "http://localhost:11434/api/generate",
         json={
-            "model": "llama3.2",
+            "model": "qwen2.5:1.5b",
             "prompt": prompt,
             "stream": False
         },
-        timeout=60.0
+        timeout=180.0
     )
 
     response.raise_for_status()
@@ -190,6 +217,7 @@ def classify_hs_code(shipment_id: str, supabase: Client) -> dict:
     shipment_data = get_shipment_description(shipment_id, supabase)
     product_description = shipment_data["product_description"]
     e2open_hs_code = shipment_data["e2open_hs_code"]
+    real_uuid = shipment_data["shipment_id"]
     print(f"[Module A] Description: {product_description}")
 
     print("[Module A] Step 2 — Embedding description...")
@@ -201,7 +229,7 @@ def classify_hs_code(shipment_id: str, supabase: Client) -> dict:
     print(f"[Module A] Top match: {top_3_matches[0]['hs_code']} "
           f"({round(top_3_matches[0]['similarity']*100,1)}%)")
 
-    print("[Module A] Step 4 — Asking llama3.2...")
+    print("[Module A] Step 4 — Asking qwen2.5:1.5b...")
     llama_result = ask_llama_for_classification(
         product_description,
         top_3_matches,
@@ -212,7 +240,7 @@ def classify_hs_code(shipment_id: str, supabase: Client) -> dict:
 
     print("[Module A] Step 5 — Writing to hs_classifications...")
     final_record = write_classification_result(
-        shipment_id,
+        real_uuid,
         e2open_hs_code,
         llama_result,
         top_3_matches,
