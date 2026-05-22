@@ -3,16 +3,409 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Jabil · AI Tariff Calculation Engine</title>
+<title>NEXA · AI Tariff Intelligence</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.2.0/tabler-icons.min.css">
 <link rel="stylesheet" href="css/styles.css">
+<style>
+/* ── Search hero ─────────────────────────────────────── */
+.search-hero {
+  background: var(--surface-dark);
+  border-radius: var(--r-xl);
+  padding: 36px 40px 32px;
+  margin-bottom: var(--sp-xl);
+  position: relative;
+  overflow: hidden;
+}
+.search-hero::before {
+  content: '';
+  position: absolute;
+  top: -60px; right: -60px;
+  width: 260px; height: 260px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(204,120,92,.18) 0%, transparent 70%);
+  pointer-events: none;
+}
+.search-eyebrow {
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--on-dark-soft);
+  margin-bottom: 8px;
+}
+.search-headline {
+  font-family: var(--serif);
+  font-size: 30px;
+  font-weight: 300;
+  color: var(--on-dark);
+  letter-spacing: -0.3px;
+  margin-bottom: 24px;
+  line-height: 1.2;
+}
+.search-headline span { color: var(--primary); }
+.search-input-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+  max-width: 560px;
+}
+.search-input {
+  flex: 1;
+  height: 46px;
+  padding: 0 16px;
+  background: rgba(255,255,255,.07);
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: var(--r-md);
+  color: var(--on-dark);
+  font-size: 15px;
+  font-family: var(--mono);
+  outline: none;
+  transition: border-color .15s, background .15s;
+}
+.search-input::placeholder { color: var(--on-dark-soft); }
+.search-input:focus {
+  border-color: var(--primary);
+  background: rgba(255,255,255,.10);
+}
+.search-btn {
+  height: 46px;
+  padding: 0 24px;
+  font-size: 14px;
+  border-radius: var(--r-md);
+  white-space: nowrap;
+}
+.quick-chips {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.chip {
+  padding: 4px 13px;
+  border-radius: var(--r-pill);
+  border: 1px solid rgba(255,255,255,.14);
+  background: rgba(255,255,255,.06);
+  color: var(--on-dark-soft);
+  font-size: 12px;
+  font-family: var(--mono);
+  cursor: pointer;
+  transition: all .12s;
+}
+.chip:hover {
+  background: rgba(204,120,92,.22);
+  border-color: var(--primary);
+  color: var(--on-dark);
+}
+
+/* ── Shipment hero card ─────────────────────────────── */
+.shipment-hero-card {
+  background: var(--canvas);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-xl);
+  padding: var(--sp-xl);
+  margin-bottom: var(--sp-xl);
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--sp-xl);
+  align-items: center;
+}
+.ship-id-tag {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--primary);
+  background: rgba(204,120,92,.10);
+  border: 1px solid rgba(204,120,92,.22);
+  padding: 2px 10px;
+  border-radius: var(--r-pill);
+  display: inline-block;
+  margin-bottom: 10px;
+}
+.ship-name {
+  font-family: var(--serif);
+  font-size: 24px;
+  font-weight: 400;
+  color: var(--ink);
+  margin-bottom: 10px;
+  line-height: 1.2;
+}
+.ship-meta-row {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+.ship-meta-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.ship-meta-item i { font-size: 14px; color: var(--muted-soft); }
+.ship-meta-item strong { color: var(--ink); font-weight: 500; }
+.ship-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 160px;
+}
+
+/* ── Analysis grid ──────────────────────────────────── */
+.analysis-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: var(--sp-lg);
+  margin-bottom: var(--sp-xl);
+}
+.analysis-card {
+  background: var(--canvas);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-xl);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.analysis-card.mod-c {
+  border: 2px dashed #d97706;
+  background: rgba(251,191,36,.03);
+}
+.mod-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 18px var(--sp-lg) 14px;
+  border-bottom: 1px solid var(--hairline-soft);
+  background: var(--surface-soft);
+}
+.mod-badge {
+  width: 34px; height: 34px;
+  border-radius: var(--r-md);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px; font-weight: 700;
+  flex-shrink: 0;
+}
+.mod-badge-a { background: rgba(93,184,166,.15); color: var(--teal); }
+.mod-badge-b { background: rgba(204,120,92,.12); color: var(--primary); }
+.mod-badge-c { background: rgba(217,119,6,.12);  color: #d97706; }
+.mod-title { font-size: 14px; font-weight: 600; color: var(--ink); margin-bottom: 2px; }
+.mod-sub   { font-size: 11px; color: var(--muted-soft); }
+.mod-status-badge {
+  margin-left: auto;
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: var(--r-pill);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.mod-body { flex: 1; padding: var(--sp-lg); }
+.mod-footer {
+  padding: var(--sp-md) var(--sp-lg);
+  border-top: 1px solid var(--hairline-soft);
+  background: var(--surface-soft);
+  display: flex;
+  gap: 8px;
+}
+
+/* ── Big HS code display ────────────────────────────── */
+.hs-big {
+  font-family: var(--mono);
+  font-size: 38px;
+  font-weight: 500;
+  color: var(--primary);
+  letter-spacing: -1px;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+.hs-desc {
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 18px;
+}
+
+/* ── Confidence bar ─────────────────────────────────── */
+.conf-bar-wrap {
+  margin-bottom: 16px;
+}
+.conf-bar-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11.5px;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+.conf-bar-label .val { font-weight: 600; font-family: var(--mono); }
+.conf-track {
+  height: 8px;
+  background: var(--surface-cream);
+  border-radius: var(--r-pill);
+  overflow: hidden;
+}
+.conf-fill {
+  height: 100%;
+  border-radius: var(--r-pill);
+  transition: width .6s cubic-bezier(.4,0,.2,1);
+}
+.threshold-line {
+  position: relative;
+  height: 0;
+}
+.threshold-tick {
+  position: absolute;
+  top: -10px;
+  width: 1px;
+  height: 8px;
+  background: var(--muted-soft);
+  transform: translateX(-50%);
+}
+
+/* ── FTA rate comparison ────────────────────────────── */
+.rate-compare {
+  background: var(--surface-soft);
+  border-radius: var(--r-lg);
+  padding: 14px 16px;
+  margin-bottom: 14px;
+}
+.rate-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.rate-row:last-child { margin-bottom: 0; }
+.rate-label { font-size: 11px; color: var(--muted); width: 48px; flex-shrink: 0; }
+.rate-bar-wrap { flex: 1; height: 18px; background: var(--surface-cream); border-radius: var(--r-sm); overflow: hidden; }
+.rate-bar { height: 100%; border-radius: var(--r-sm); transition: width .6s; display: flex; align-items: center; padding-left: 6px; }
+.rate-bar.mfn { background: rgba(140,130,120,.25); }
+.rate-bar.fta { background: rgba(93,184,166,.35); }
+.rate-pct { font-size: 11px; font-family: var(--mono); font-weight: 600; min-width: 36px; text-align: right; color: var(--ink); }
+
+/* ── Savings badge ──────────────────────────────────── */
+.savings-badge {
+  background: rgba(93,184,166,.10);
+  border: 1px solid rgba(93,184,166,.25);
+  border-radius: var(--r-lg);
+  padding: 14px 16px;
+  text-align: center;
+  margin-bottom: 14px;
+}
+.savings-label { font-size: 10.5px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 4px; }
+.savings-amount { font-family: var(--serif); font-size: 32px; font-weight: 400; color: var(--teal); line-height: 1; }
+.savings-sub { font-size: 11px; color: var(--muted-soft); margin-top: 3px; }
+
+/* ── FTA checklist ──────────────────────────────────── */
+.fta-list-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--hairline-soft);
+  font-size: 12px;
+}
+.fta-list-item:last-child { border-bottom: none; }
+.fta-check { font-size: 14px; flex-shrink: 0; }
+.fta-nm    { font-family: var(--mono); font-weight: 600; color: var(--ink); min-width: 52px; }
+.fta-rate-val { font-family: var(--mono); min-width: 38px; text-align: right; margin-left: auto; }
+.fta-reason { font-size: 10.5px; color: var(--muted-soft); flex: 1; }
+
+/* ── Module C formula ───────────────────────────────── */
+.formula-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--hairline-soft);
+  font-size: 12.5px;
+}
+.formula-row:last-child { border-bottom: none; }
+.formula-lbl { color: var(--muted); font-size: 12px; }
+.formula-val { font-family: var(--mono); font-weight: 500; color: var(--ink); }
+.formula-total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  margin-top: 10px;
+  background: rgba(217,119,6,.08);
+  border-radius: var(--r-md);
+  border: 1px dashed rgba(217,119,6,.3);
+}
+.formula-total-lbl { font-size: 13px; font-weight: 600; color: #d97706; }
+.formula-total-val { font-family: var(--mono); font-size: 15px; font-weight: 600; color: #d97706; }
+
+/* ── Expandable section ─────────────────────────────── */
+.expand-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--primary);
+  cursor: pointer;
+  padding: 10px 14px;
+  border: 1.5px solid var(--hairline);
+  border-radius: var(--r-md);
+  background: var(--surface-soft);
+  width: 100%;
+  margin: 8px 0 4px;
+  transition: background .15s, border-color .15s;
+}
+.expand-toggle:hover { background: var(--surface-card); border-color: var(--primary); }
+.expand-body {
+  overflow: hidden;
+  max-height: 0;
+  transition: max-height .3s ease;
+}
+.expand-body.open { max-height: 600px; }
+
+/* ── RAG source bar ─────────────────────────────────── */
+.rag-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 0;
+  font-size: 11px;
+}
+.rag-code { font-family: var(--mono); color: var(--primary); min-width: 56px; font-weight: 500; }
+.rag-bar  { flex: 1; height: 5px; background: var(--surface-cream); border-radius: var(--r-pill); overflow: hidden; }
+.rag-fill { height: 100%; background: var(--teal); border-radius: var(--r-pill); }
+.rag-pct  { font-family: var(--mono); min-width: 34px; text-align: right; color: var(--teal); }
+
+/* ── Audit section ──────────────────────────────────── */
+.section-title {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 1.3px;
+  text-transform: uppercase;
+  color: var(--muted-soft);
+  margin-bottom: var(--sp-md);
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--hairline-soft);
+}
+
+/* ── Responsive ─────────────────────────────────────── */
+@media (max-width: 1200px) {
+  .analysis-grid { grid-template-columns: 1fr 1fr; }
+  .analysis-card.mod-c { grid-column: 1 / -1; }
+}
+@media (max-width: 800px) {
+  .analysis-grid { grid-template-columns: 1fr; }
+  .shipment-hero-card { grid-template-columns: 1fr; }
+}
+
+/* ── Toast & spinner ────────────────────────────────── */
+#toast.show { opacity: 1; }
+.spin { animation: spin .8s linear infinite; display: inline-block; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.fade-in { animation: fadeIn .25s ease; }
+@keyframes fadeIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+</style>
 </head>
 <body>
 <div class="app">
 
-  <!-- Sidebar -->
+  <!-- ── Sidebar ──────────────────────────────────────── -->
   <aside class="sidebar">
     <div class="sidebar-logo">
       <div class="logo-row">
@@ -22,27 +415,26 @@
             <circle cx="7.5" cy="7.5" r="2" fill="#cc785c"/>
           </svg>
         </div>
-        <span class="logo-wordmark">Jabil Trade AI</span>
+        <span class="logo-wordmark">NEXA Trade AI</span>
       </div>
-      <div class="logo-sub">Global Trade Compliance</div>
+      <div class="logo-sub">Jabil · Global Trade Compliance</div>
     </div>
     <nav class="nav">
       <div class="nav-section">
-        <div class="nav-label">Workflow</div>
-        <div class="nav-item active"><i class="ti ti-file-invoice"></i> Batch Processing <span class="nav-badge warn">3</span></div>
-        <div class="nav-item"><i class="ti ti-ship"></i> All Shipments</div>
-        <div class="nav-item"><i class="ti ti-clock-history"></i> History</div>
+        <div class="nav-label">Analysis</div>
+        <div class="nav-item active" data-page="index" onclick="showView('lookup')"><i class="ti ti-search"></i> Shipment Lookup</div>
+        <div class="nav-item" data-page="shipments" onclick="location='shipments.html'"><i class="ti ti-list-check"></i> All Shipments</div>
+        <div class="nav-item" data-page="audit" onclick="location='audit.html'"><i class="ti ti-clock-history"></i> Audit Trail</div>
       </div>
       <div class="nav-section">
         <div class="nav-label">Intelligence</div>
-        <div class="nav-item"><i class="ti ti-world"></i> FTA Library</div>
-        <div class="nav-item"><i class="ti ti-bell"></i> Regulatory Feed <span class="nav-badge">2</span></div>
-        <div class="nav-item"><i class="ti ti-chart-bar"></i> Analytics</div>
+        <div class="nav-item" data-page="fta-library" onclick="location='fta-library.html'"><i class="ti ti-world"></i> FTA Library</div>
+        <div class="nav-item" data-page="reports" onclick="location='reports.html'"><i class="ti ti-chart-bar"></i> Analytics</div>
       </div>
       <div class="nav-section">
         <div class="nav-label">System</div>
-        <div class="nav-item"><i class="ti ti-lock"></i> Audit Trail</div>
-        <div class="nav-item"><i class="ti ti-settings"></i> Configuration</div>
+        <div class="nav-item" onclick="runSeedAndRefresh()"><i class="ti ti-database"></i> Re-Seed Data</div>
+        <div class="nav-item" onclick="showToast('Configuration — coming soon')"><i class="ti ti-settings"></i> Configuration</div>
       </div>
     </nav>
     <div class="sidebar-user">
@@ -56,383 +448,291 @@
     </div>
   </aside>
 
-  <!-- Main -->
+  <!-- ── Main ─────────────────────────────────────────── -->
   <div class="main">
 
     <div class="topbar">
-      <div class="topbar-crumb">
-        Batch Processing <i class="ti ti-chevron-right"></i> <strong>MY → US Export Lane</strong>
+      <div class="topbar-crumb" id="topbarCrumb">
+        NEXA <i class="ti ti-chevron-right"></i> <strong>Shipment Lookup</strong>
       </div>
-      <div class="live-row"><div class="live-dot"></div> AI processing</div>
-      <button class="btn" style="margin-left:8px"><i class="ti ti-download"></i> Export</button>
-      <button class="btn btn-primary" onclick="openModal('batchModal')"><i class="ti ti-check"></i> Submit Batch</button>
+      <div class="live-row"><div class="live-dot"></div> Live · Supabase</div>
+      <button class="btn" onclick="loadShipments()"><i class="ti ti-refresh"></i> Refresh</button>
+      <button class="btn btn-primary" onclick="openModal('batchModal')"><i class="ti ti-checks"></i> Submit Batch</button>
     </div>
 
     <div class="content">
 
-      <!-- Page head -->
-      <div class="page-head-row">
-        <div>
-          <div class="page-eyebrow">Batch #TCA-2026-0518 · PCBAs</div>
-          <div class="page-title">Tariff Calculation Review</div>
-          <div class="page-meta">50 shipment items · Malaysia to United States · 18 May 2026</div>
-        </div>
-      </div>
+      <!-- ── VIEW: SHIPMENT LOOKUP ─────────────────────── -->
+      <div id="viewLookup">
 
-      <!-- Alert -->
-      <div class="alert-band" id="alertBand">
-        <i class="ti ti-alert-triangle alert-icon"></i>
-        <div class="alert-text"><strong>Regulatory Update —</strong> CPTPP Year 8 staged reductions effective 1 Jan 2026. Three items in this batch may qualify for updated preferential rates. Review flagged items before submission.</div>
-        <button class="alert-close" onclick="this.closest('.alert-band').style.display='none'"><i class="ti ti-x"></i></button>
-      </div>
-
-      <!-- KPIs -->
-      <div class="kpi-row">
-        <div class="kpi">
-          <div class="kpi-label">Shipments</div>
-          <div class="kpi-val" id="kpiTotal">—</div>
-          <div class="kpi-note"><span id="kpiPending">—</span> pending</div>
-        </div>
-        <div class="kpi teal">
-          <div class="kpi-label">FTA Savings Identified</div>
-          <div class="kpi-val" id="kpiSaving">—</div>
-          <div class="kpi-note">duty saved via FTA matching</div>
-        </div>
-        <div class="kpi red">
-          <div class="kpi-label">Flagged for Review</div>
-          <div class="kpi-val" id="kpiFlagged">—</div>
-          <div class="kpi-note">require analyst action</div>
-        </div>
-        <div class="kpi coral">
-          <div class="kpi-label">Module C Status</div>
-          <div class="kpi-val" style="font-size:18px;color:var(--amber)">Pending</div>
-          <div class="kpi-note">Landed Cost — next to build</div>
-        </div>
-      </div>
-
-      <!-- ── AI PIPELINE OVERVIEW ──────────────────────────────── -->
-      <div class="panel" style="margin-bottom:16px">
-        <div class="panel-head">
-          <i class="ti ti-git-merge" style="color:var(--primary);font-size:15px"></i>
-          <span class="panel-title">AI Processing Pipeline</span>
-          <span class="panel-meta">Select any shipment row to see each module's output in the panel on the right</span>
-          <button class="btn" style="margin-left:auto;font-size:11px" onclick="runSeedAndRefresh()">
-            <i class="ti ti-database"></i> Re-Seed DB
-          </button>
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 28px 1fr 28px 1fr;align-items:stretch;padding:16px 20px;gap:0">
-
-          <!-- Module A -->
-          <div style="border:1px solid var(--border);border-radius:8px;padding:16px">
-            <div style="font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted-soft);margin-bottom:6px">Teammate A · COMPLETE ✓</div>
-            <div style="font-size:14px;font-weight:600;color:var(--ink);margin-bottom:2px">Module A</div>
-            <div style="font-size:11.5px;color:var(--muted-soft);margin-bottom:12px">HS Code Classification</div>
-            <div style="font-size:11px;line-height:1.8;color:var(--muted-soft)">
-              <span style="color:var(--teal)">Reads:</span> product description + e2open hint<br>
-              <span style="color:var(--primary)">Uses:</span> nomic-embed-text → pgvector → llama3.2<br>
-              <span style="color:var(--primary)">Writes:</span> <span style="font-family:monospace">hs_classifications</span> table
-            </div>
-            <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border);display:flex;align-items:center;gap:6px">
-              <div style="width:8px;height:8px;border-radius:50%;background:var(--teal)"></div>
-              <span id="modACount" style="font-size:11px;color:var(--teal);font-weight:500">— / — classified</span>
-            </div>
+        <!-- Search Hero -->
+        <div class="search-hero">
+          <div class="search-eyebrow">NEXA AI · Use Case 2 · Malaysia → Jabil</div>
+          <div class="search-headline">What is the landed cost of<br><span>shipment</span>?</div>
+          <div class="search-input-row">
+            <input id="searchInput" class="search-input" type="text"
+              placeholder="Enter Shipment ID — e.g. SHIP001"
+              onkeydown="if(event.key==='Enter') analyzeShipment()">
+            <button class="btn btn-primary search-btn" onclick="analyzeShipment()">
+              <i class="ti ti-search"></i> Analyze
+            </button>
           </div>
-
-          <!-- Arrow -->
-          <div style="display:flex;align-items:center;justify-content:center;color:var(--muted-soft);font-size:20px">→</div>
-
-          <!-- Module B -->
-          <div style="border:2px solid var(--primary);border-radius:8px;padding:16px;background:rgba(160,157,150,.04)">
-            <div style="font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--primary);margin-bottom:6px">You · COMPLETE ✓</div>
-            <div style="font-size:14px;font-weight:600;color:var(--ink);margin-bottom:2px">Module B</div>
-            <div style="font-size:11.5px;color:var(--muted-soft);margin-bottom:12px">FTA Matching</div>
-            <div style="font-size:11px;line-height:1.8;color:var(--muted-soft)">
-              <span style="color:var(--teal)">Reads:</span> HS code + origin country + RVC %<br>
-              <span style="color:var(--primary)">Checks:</span> 17 Malaysian FTAs · RoO rules<br>
-              <span style="color:var(--primary)">Writes:</span> <span style="font-family:monospace">fta_results</span> table
-            </div>
-            <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border);display:flex;align-items:center;gap:6px">
-              <div style="width:8px;height:8px;border-radius:50%;background:var(--teal)"></div>
-              <span id="modBCount" style="font-size:11px;color:var(--teal);font-weight:500">— / — matched</span>
-            </div>
+          <div class="quick-chips">
+            <span style="font-size:11px;color:var(--on-dark-soft);margin-right:4px">Quick select:</span>
+            <span class="chip" onclick="quickSearch('SHIP001')">SHIP001 · Vietnam PCB</span>
+            <span class="chip" onclick="quickSearch('SHIP002')">SHIP002 · China Motor</span>
+            <span class="chip" onclick="quickSearch('SHIP003')">SHIP003 · Vietnam Alu</span>
+            <span class="chip" onclick="quickSearch('SHIP004')">SHIP004 · Taiwan DRAM</span>
+            <span class="chip" onclick="quickSearch('SHIP005')">SHIP005 · Korea Lens</span>
           </div>
-
-          <!-- Arrow -->
-          <div style="display:flex;align-items:center;justify-content:center;color:var(--muted-soft);font-size:20px">→</div>
-
-          <!-- Module C -->
-          <div style="border:2px dashed var(--amber,#d97706);border-radius:8px;padding:16px;background:rgba(251,191,36,.05)">
-            <div style="font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--amber,#d97706);margin-bottom:6px">Teammate C · YOUR TURN ⬅</div>
-            <div style="font-size:14px;font-weight:600;color:var(--ink);margin-bottom:2px">Module C</div>
-            <div style="font-size:11.5px;color:var(--muted-soft);margin-bottom:12px">Landed Cost Calculator</div>
-            <div style="font-size:11px;line-height:1.8;color:var(--muted-soft)">
-              <span style="color:var(--teal)">Reads:</span> FTA rate (B) + CIF value (shipment)<br>
-              <span style="color:var(--amber,#d97706)">Calculates:</span> duty + SST + fees<br>
-              <span style="color:var(--amber,#d97706)">Writes:</span> <span style="font-family:monospace">landed_costs</span> table
-            </div>
-            <div style="margin-top:12px;padding-top:10px;border-top:1px solid rgba(217,119,6,.2);display:flex;align-items:center;gap:6px">
-              <div style="width:8px;height:8px;border-radius:50%;background:var(--amber,#d97706)"></div>
-              <span style="font-size:11px;color:var(--amber,#d97706);font-weight:500">0 calculated — awaiting build</span>
-            </div>
-          </div>
-
-        </div>
-      </div>
-
-      <!-- Main grid -->
-      <div class="grid-main">
-
-        <!-- Batch table -->
-        <div class="panel">
-          <div class="panel-head">
-            <i class="ti ti-list-check" style="color:var(--primary);font-size:15px"></i>
-            <span class="panel-title">Shipment Items</span>
-            <span class="panel-meta">47 processed · 3 pending</span>
-            <span class="pill pill-processing" id="batchPill">Processing</span>
-          </div>
-          <div class="progress-wrap">
-            <div class="progress-row">
-              <span class="progress-lbl">Batch completion</span>
-              <span class="progress-num">47 / 50</span>
-            </div>
-            <div class="progress-track"><div class="progress-fill" style="width:94%"></div></div>
-          </div>
-          <div class="filter-bar">
-            <button class="tab active" onclick="setFilter('all',this)">All (50)</button>
-            <button class="tab flag-tab" onclick="setFilter('flagged',this)"><i class="ti ti-alert-circle" style="font-size:11px"></i> Flagged (3)</button>
-            <button class="tab" onclick="setFilter('approved',this)"><i class="ti ti-check" style="font-size:11px"></i> Approved (14)</button>
-            <div class="flex1"></div>
-            <button class="bulk-btn" onclick="doBulk()"><i class="ti ti-checks" style="font-size:12px"></i> Bulk Approve ≥95%</button>
-          </div>
-          <div class="tbl-head">
-            <span>#</span><span>HS Code</span><span>Product</span>
-            <span>Confidence</span><span style="text-align:right">Duty</span>
-            <span>FTA</span><span style="text-align:right">Actions</span>
-          </div>
-          <div id="tblBody"></div>
         </div>
 
-        <!-- Detail panel — dynamic, updated by app.js -->
-        <div class="detail-stack">
-
-          <!-- Card 1: Shipment Info -->
-          <div class="det-card">
-            <div class="det-head">
-              <i class="ti ti-package" style="color:var(--primary);font-size:15px"></i>
-              <span class="det-title" id="detTitle">Select a shipment →</span>
-              <span class="pill" id="detStatusPill" style="font-size:10px">—</span>
-            </div>
-            <div class="det-body">
-              <div class="d-row"><span class="d-lbl">Product</span><span class="d-val" id="detProduct">—</span></div>
-              <div class="d-row"><span class="d-lbl">HS Code</span><span class="d-val" id="detHS">—</span></div>
-              <div class="d-row"><span class="d-lbl">Route</span><span class="d-val" id="detOrigin">—</span></div>
-              <div class="d-row"><span class="d-lbl">CIF Value</span><span class="d-val" id="detValue">—</span></div>
-              <div class="d-row"><span class="d-lbl">Supplier RVC</span><span class="d-val" id="detRVC">—</span></div>
-            </div>
+        <!-- KPI Summary -->
+        <div class="kpi-row">
+          <div class="kpi">
+            <div class="kpi-label">Total Shipments</div>
+            <div class="kpi-val" id="kpiTotal">—</div>
+            <div class="kpi-note"><span id="kpiPending">—</span> pending review</div>
           </div>
+          <div class="kpi teal">
+            <div class="kpi-label">Total FTA Savings</div>
+            <div class="kpi-val" id="kpiSaving">—</div>
+            <div class="kpi-note">duty saved across all shipments</div>
+          </div>
+          <div class="kpi coral">
+            <div class="kpi-label">Module A Coverage</div>
+            <div class="kpi-val" id="kpiModA">—</div>
+            <div class="kpi-note">HS codes classified by AI</div>
+          </div>
+          <div class="kpi red">
+            <div class="kpi-label">Flagged for Review</div>
+            <div class="kpi-val" id="kpiFlagged">—</div>
+            <div class="kpi-note">require analyst action</div>
+          </div>
+        </div>
 
-          <!-- Card 2: Module A -->
-          <div class="det-card">
-            <div class="det-head">
-              <i class="ti ti-brain" style="color:var(--primary);font-size:15px"></i>
-              <span class="det-title">Module A — HS Classification</span>
-              <span class="pill" id="modAStatusPill" style="font-size:10px;border:1px solid var(--border)">Not run</span>
+        <!-- ── RESULT SECTION (hidden until search) ── -->
+        <div id="resultSection" style="display:none">
+
+          <!-- Shipment Overview Card -->
+          <div class="shipment-hero-card fade-in" id="shipHeroCard">
+            <div>
+              <div class="ship-id-tag" id="shipIdTag">SHIP001</div>
+              <div class="ship-name" id="shipName">Loading…</div>
+              <div class="ship-meta-row" id="shipMeta"></div>
             </div>
-            <div class="det-body" id="modABody">
-              <div style="color:var(--muted-soft);font-size:11.5px">
-                Click Run Module A to classify the HS code using AI.
-              </div>
-            </div>
-            <div class="approval-bar">
-              <button class="act-btn act-approve" id="btnRunA" data-id="" onclick="triggerModuleA()">
-                <i class="ti ti-brain" style="font-size:13px"></i> Run Module A
+            <div class="ship-actions">
+              <button class="btn btn-primary" id="btnRunA" onclick="triggerA()">
+                <i class="ti ti-brain"></i> Run Module A
               </button>
-            </div>
-          </div>
-
-          <!-- Card 3: Module B -->
-          <div class="det-card">
-            <div class="det-head">
-              <i class="ti ti-world" style="color:var(--teal);font-size:15px"></i>
-              <span class="det-title">Module B — FTA Matching</span>
-              <span class="pill" id="modBStatusPill" style="font-size:10px;border:1px solid var(--border)">Not run</span>
-            </div>
-            <div class="det-body" id="modBBody">
-              <div style="color:var(--muted-soft);font-size:11.5px">
-                Click Run Module B to find the best FTA rate.
-              </div>
-            </div>
-            <div class="approval-bar">
-              <button class="act-btn act-edit" id="btnRunB" data-id="" onclick="triggerModuleB()">
-                <i class="ti ti-world" style="font-size:13px"></i> Run Module B
+              <button class="btn" id="btnRunB" onclick="triggerB()">
+                <i class="ti ti-world"></i> Run Module B
               </button>
-              <button class="act-btn act-escalate" onclick="openModal('escalateModal')">
+              <button class="act-btn act-approve" style="height:33px;border-radius:var(--r-md);font-size:12.5px;font-weight:500;display:flex;align-items:center;justify-content:center;gap:5px;padding:0 12px" onclick="openModal('approvedModal')">
+                <i class="ti ti-check" style="font-size:13px"></i> Approve
+              </button>
+              <button class="act-btn act-escalate" style="height:33px;border-radius:var(--r-md);font-size:12.5px;font-weight:500;display:flex;align-items:center;justify-content:center;gap:5px;padding:0 12px" onclick="openModal('escalateModal')">
                 <i class="ti ti-arrow-up-right" style="font-size:13px"></i> Escalate
               </button>
             </div>
           </div>
 
-          <!-- Card 4: Module C — what teammate C needs to build -->
-          <div class="det-card" style="border:1.5px dashed #d97706;background:rgba(251,191,36,.04)">
-            <div class="det-head">
-              <i class="ti ti-receipt" style="color:#d97706;font-size:15px"></i>
-              <span class="det-title">Module C — Landed Cost</span>
-              <span class="pill" style="font-size:10px;color:#d97706;border:1px solid #d97706;background:transparent">Your Module</span>
+          <!-- Analysis Cards: A | B | C -->
+          <div class="analysis-grid fade-in">
+
+            <!-- MODULE A -->
+            <div class="analysis-card">
+              <div class="mod-header">
+                <div class="mod-badge mod-badge-a">A</div>
+                <div style="flex:1">
+                  <div class="mod-title">HS Classification</div>
+                  <div class="mod-sub">AI · nomic-embed-text + llama3.2</div>
+                </div>
+                <span class="mod-status-badge" id="modABadge"
+                  style="background:var(--surface-cream);color:var(--muted)">Not run</span>
+              </div>
+              <div class="mod-body" id="modABody">
+                <div style="color:var(--muted-soft);font-size:12px;line-height:1.8;text-align:center;padding:20px 0">
+                  <i class="ti ti-brain" style="font-size:28px;display:block;margin-bottom:8px;color:var(--hairline)"></i>
+                  Run Module A to classify<br>the HS code using AI
+                </div>
+              </div>
+              <div class="mod-footer">
+                <button class="btn btn-primary" style="flex:1;justify-content:center" id="btnRunA2" onclick="triggerA()">
+                  <i class="ti ti-brain"></i> Run Module A
+                </button>
+              </div>
             </div>
-            <div class="det-body">
-              <div style="font-size:11px;color:var(--muted-soft);margin-bottom:10px;padding:8px;background:rgba(251,191,36,.08);border-radius:4px;line-height:1.6">
-                <strong style="color:var(--ink)">Module C receives these inputs from A &amp; B:</strong>
+
+            <!-- MODULE B -->
+            <div class="analysis-card">
+              <div class="mod-header">
+                <div class="mod-badge mod-badge-b">B</div>
+                <div style="flex:1">
+                  <div class="mod-title">FTA Matching</div>
+                  <div class="mod-sub">17 Malaysian FTAs · Rules of Origin</div>
+                </div>
+                <span class="mod-status-badge" id="modBBadge"
+                  style="background:var(--surface-cream);color:var(--muted)">Not run</span>
               </div>
-              <div class="d-row">
-                <span class="d-lbl">HS Code <span style="color:var(--teal);font-size:9px">(from A)</span></span>
-                <span class="d-val" id="mcHSCode">—</span>
+              <div class="mod-body" id="modBBody">
+                <div style="color:var(--muted-soft);font-size:12px;line-height:1.8;text-align:center;padding:20px 0">
+                  <i class="ti ti-world" style="font-size:28px;display:block;margin-bottom:8px;color:var(--hairline)"></i>
+                  Run Module B to find the<br>best FTA rate available
+                </div>
               </div>
-              <div class="d-row">
-                <span class="d-lbl">FTA Rate <span style="color:var(--teal);font-size:9px">(from B)</span></span>
-                <span class="d-val" id="mcFTARate">—</span>
+              <div class="mod-footer">
+                <button class="btn" style="flex:1;justify-content:center" id="btnRunB2" onclick="triggerB()">
+                  <i class="ti ti-world"></i> Run Module B
+                </button>
               </div>
-              <div class="d-row">
-                <span class="d-lbl">CIF Value <span style="color:var(--muted-soft);font-size:9px">(shipment)</span></span>
-                <span class="d-val" id="mcCIF">—</span>
+            </div>
+
+            <!-- MODULE C -->
+            <div class="analysis-card mod-c">
+              <div class="mod-header">
+                <div class="mod-badge mod-badge-c">C</div>
+                <div style="flex:1">
+                  <div class="mod-title">Landed Cost Calculator</div>
+                  <div class="mod-sub">Teammate C — your module to build</div>
+                </div>
+                <span class="mod-status-badge" style="background:rgba(217,119,6,.10);color:#d97706">
+                  ⬅ Build This
+                </span>
               </div>
-              <div class="d-row">
-                <span class="d-lbl">Customs Duty</span>
-                <span class="d-val" id="mcDuty" style="color:var(--teal)">—</span>
+              <div class="mod-body" id="modCBody">
+                <div style="font-size:11.5px;color:var(--muted-soft);margin-bottom:12px">
+                  Module C receives these computed values:
+                </div>
+                <div class="formula-row">
+                  <span class="formula-lbl">HS Code <em style="font-style:normal;color:var(--teal);font-size:10px">(from A)</em></span>
+                  <span class="formula-val" id="mcHS">—</span>
+                </div>
+                <div class="formula-row">
+                  <span class="formula-lbl">FTA Rate <em style="font-style:normal;color:var(--teal);font-size:10px">(from B)</em></span>
+                  <span class="formula-val" id="mcRate">—</span>
+                </div>
+                <div class="formula-row">
+                  <span class="formula-lbl">CIF Value <em style="font-style:normal;color:var(--muted-soft);font-size:10px">(shipment)</em></span>
+                  <span class="formula-val" id="mcCIF">—</span>
+                </div>
+                <div style="margin-top:14px;padding:10px;background:var(--surface-soft);border-radius:var(--r-md);font-size:11.5px;line-height:1.9;color:var(--muted-soft)">
+                  <strong style="color:var(--ink);display:block;margin-bottom:4px">Module C calculates:</strong>
+                  Customs Duty = FTA Rate × CIF<br>
+                  SST = 6% × (CIF + Duty)<br>
+                  Processing Fee (flat)<br>
+                  <strong style="color:#d97706">Total Landed Cost</strong> → <code style="font-size:10.5px">landed_costs</code> table
+                </div>
+                <div class="formula-total" style="margin-top:14px">
+                  <span class="formula-total-lbl"><i class="ti ti-calculator" style="margin-right:4px"></i>Total Landed Cost</span>
+                  <span class="formula-total-val" id="mcTotal">Awaiting Module C</span>
+                </div>
               </div>
-              <div style="margin-top:10px;font-size:11px;color:var(--muted-soft);line-height:1.7;border-top:1px solid var(--border);padding-top:8px">
-                <strong style="color:var(--ink)">Module C also calculates:</strong><br>
-                • SST = 6% × (CIF + Duty)<br>
-                • Customs Processing Fee (flat)<br>
-                • Port + Handling Fees<br>
-                • <strong style="color:#d97706">Total Landed Cost</strong> → write to <span style="font-family:monospace">landed_costs</span>
-              </div>
+            </div>
+
+          </div><!-- /analysis-grid -->
+
+          <!-- Audit Trail for this shipment -->
+          <div class="panel fade-in" id="auditSection" style="margin-bottom:var(--sp-xl)">
+            <div class="panel-head">
+              <i class="ti ti-lock" style="color:var(--primary);font-size:15px"></i>
+              <span class="panel-title">Audit Trail</span>
+              <span class="panel-meta" id="auditMeta">—</span>
+            </div>
+            <div style="padding:0 var(--sp-lg)" id="auditBody">
+              <div style="padding:20px 0;color:var(--muted-soft);font-size:12px">No audit records yet.</div>
             </div>
           </div>
 
-        </div>
-      </div>
+        </div><!-- /resultSection -->
+      </div><!-- /viewLookup -->
 
-      <!-- Bottom -->
-      <div class="grid-bottom">
+      <!-- ── VIEW: ALL SHIPMENTS ──────────────────────── -->
+      <div id="viewBatch" style="display:none">
+
+        <div class="page-head-row">
+          <div>
+            <div class="page-eyebrow">Batch Overview</div>
+            <div class="page-title">All Shipments</div>
+            <div class="page-meta" id="batchMeta">Loading…</div>
+          </div>
+        </div>
+
+        <!-- Pipeline Banner -->
+        <div class="panel" style="margin-bottom:var(--sp-lg)">
+          <div class="panel-head">
+            <i class="ti ti-git-merge" style="color:var(--primary);font-size:15px"></i>
+            <span class="panel-title">AI Pipeline Status</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 24px 1fr 24px 1fr;align-items:center;padding:16px 20px">
+            <div style="text-align:center">
+              <div style="font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted-soft);margin-bottom:4px">Module A · Teammate A ✓</div>
+              <div style="font-size:20px;font-weight:600;color:var(--teal)" id="pipeACount">—</div>
+              <div style="font-size:11px;color:var(--muted-soft)">shipments classified</div>
+            </div>
+            <div style="text-align:center;color:var(--muted-soft);font-size:18px">→</div>
+            <div style="text-align:center">
+              <div style="font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted-soft);margin-bottom:4px">Module B · You ✓</div>
+              <div style="font-size:20px;font-weight:600;color:var(--primary)" id="pipeBCount">—</div>
+              <div style="font-size:11px;color:var(--muted-soft)">FTAs matched</div>
+            </div>
+            <div style="text-align:center;color:var(--muted-soft);font-size:18px">→</div>
+            <div style="text-align:center">
+              <div style="font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:#d97706;margin-bottom:4px">Module C · Teammate C ⬅</div>
+              <div style="font-size:20px;font-weight:600;color:#d97706">0</div>
+              <div style="font-size:11px;color:var(--muted-soft)">landed costs calculated</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Table -->
         <div class="panel">
           <div class="panel-head">
-            <i class="ti ti-lock" style="color:var(--primary);font-size:15px"></i>
-            <span class="panel-title">Immutable Audit Trail</span>
-            <span class="panel-meta">Batch #TCA-2026-0518</span>
+            <i class="ti ti-list-check" style="color:var(--primary);font-size:15px"></i>
+            <span class="panel-title">Shipment Items</span>
+            <span class="panel-meta" id="tableCountMeta">—</span>
+            <span class="pill pill-processing" id="batchPill">Live</span>
           </div>
-          <div style="padding:0 var(--sp-lg)">
-            <div class="audit-row">
-              <span class="audit-time">09:42:07 UTC</span>
-              <i class="ti ti-check audit-ico" style="color:var(--success)"></i>
-              <span class="audit-msg"><strong>Sarah Lim</strong> approved item #07 (8534.00.1000) — CPTPP 0% applied. Duty: $0.00</span>
-            </div>
-            <div class="audit-row">
-              <span class="audit-time">09:41:33 UTC</span>
-              <i class="ti ti-edit audit-ico" style="color:var(--amber)"></i>
-              <span class="audit-msg"><strong>Sarah Lim</strong> overrode item #11 to 8542.31.0000. Reason: "Multi-chip module confirmed by supplier datasheet"</span>
-            </div>
-            <div class="audit-row">
-              <span class="audit-time">09:40:15 UTC</span>
-              <i class="ti ti-checks audit-ico" style="color:var(--teal)"></i>
-              <span class="audit-msg">Bulk approval: <strong>12 items</strong> ≥95% confidence approved by Sarah Lim. Model v2.1.4.</span>
-            </div>
-            <div class="audit-row">
-              <span class="audit-time">09:38:02 UTC</span>
-              <i class="ti ti-robot audit-ico" style="color:var(--primary)"></i>
-              <span class="audit-msg">AI engine processed 47 items. Feed: <strong>2026-05-18T09:30Z</strong>. CPTPP Year 8 rates applied.</span>
-            </div>
-            <div class="audit-row">
-              <span class="audit-time">09:37:51 UTC</span>
-              <i class="ti ti-file-import audit-ico" style="color:var(--muted-soft)"></i>
-              <span class="audit-msg">Batch ingested from SAP S/4HANA via OData. 50 records · 50 HS codes · 50 supplier PDFs parsed.</span>
-            </div>
+          <div class="filter-bar">
+            <button class="tab active" onclick="setFilter('all',this)">All</button>
+            <button class="tab flag-tab" onclick="setFilter('flagged',this)">
+              <i class="ti ti-alert-circle" style="font-size:11px"></i> Flagged
+            </button>
+            <button class="tab" onclick="setFilter('approved',this)">
+              <i class="ti ti-check" style="font-size:11px"></i> Approved
+            </button>
+            <button class="tab" onclick="setFilter('pending',this)">Pending</button>
+            <div class="flex1"></div>
+            <button class="bulk-btn" onclick="doBulk()">
+              <i class="ti ti-checks" style="font-size:12px"></i> Run All Pending
+            </button>
           </div>
+          <div class="tbl-head">
+            <span>#</span><span>HS Code</span><span>Product</span>
+            <span>Confidence</span><span style="text-align:right">Saving</span>
+            <span>FTA</span><span style="text-align:right">Actions</span>
+          </div>
+          <div id="tblBody"></div>
         </div>
 
-        <div class="panel">
-          <div class="panel-head">
-            <i class="ti ti-broadcast" style="color:var(--amber);font-size:15px"></i>
-            <span class="panel-title">Live Regulatory Feed</span>
-            <span class="panel-meta">Synced 09:30 UTC</span>
-            <div class="live-dot" style="margin-left:4px"></div>
-          </div>
-          <div style="padding:0 var(--sp-lg)">
-            <div class="reg-row">
-              <div class="reg-dot hi"></div>
-              <div class="reg-content">
-                <div class="reg-title">USTR Section 301 — Electronics HS 8534</div>
-                <div class="reg-meta">Duty rate change pending review · US CBP · 15 May 2026</div>
-              </div>
-              <span class="reg-tag tag-new">NEW</span>
-            </div>
-            <div class="reg-row">
-              <div class="reg-dot mid"></div>
-              <div class="reg-content">
-                <div class="reg-title">CPTPP Year 8 — Staged reductions active</div>
-                <div class="reg-meta">0% rate on 127 MY→US HS codes · effective 1 Jan 2026</div>
-              </div>
-              <span class="reg-tag tag-upd">UPDATE</span>
-            </div>
-            <div class="reg-row">
-              <div class="reg-dot lo"></div>
-              <div class="reg-content">
-                <div class="reg-title">JKDM PDK 2022 Amendment #3</div>
-                <div class="reg-meta">SST reclassification for Ch. 85 components · JKDM</div>
-              </div>
-              <span class="reg-tag tag-inf">INFO</span>
-            </div>
-            <div class="reg-row">
-              <div class="reg-dot lo"></div>
-              <div class="reg-content">
-                <div class="reg-title">MITI eTrade — Export permit threshold revised</div>
-                <div class="reg-meta">Dual-use items threshold updated · MITI · 10 May 2026</div>
-              </div>
-              <span class="reg-tag tag-inf">INFO</span>
-            </div>
-          </div>
-        </div>
-      </div>
+      </div><!-- /viewBatch -->
 
-    </div>
-  </div>
-</div>
+    </div><!-- /content -->
+  </div><!-- /main -->
+</div><!-- /app -->
 
-<!-- Modal: Success -->
+<!-- ── Modals ──────────────────────────────────────── -->
 <div class="overlay" id="approvedModal">
   <div class="modal">
     <div class="modal-success">
       <div class="success-ring"><i class="ti ti-check"></i></div>
-      <div class="success-title">Item Approved</div>
-      <div class="success-sub">Item #14 approved by Sarah Lim at 09:43:12 UTC.<br>Audit entry created and queued for SAP writeback.</div>
+      <div class="success-title">Shipment Approved</div>
+      <div class="success-sub">Approved by Sarah Lim. Audit entry created and queued for SAP writeback.</div>
       <button class="btn btn-primary" onclick="closeModal('approvedModal')">Done</button>
     </div>
   </div>
 </div>
 
-<!-- Modal: Edit -->
-<div class="overlay" id="editModal">
-  <div class="modal">
-    <div class="modal-head">
-      <i class="ti ti-edit" style="color:var(--teal);font-size:18px"></i>
-      <span class="modal-title">Override HS Code — Item #14</span>
-      <button class="modal-close" onclick="closeModal('editModal')"><i class="ti ti-x"></i></button>
-    </div>
-    <div class="modal-body">
-      <div class="ai-rec-box">
-        <div class="ai-rec-label">AI Recommended</div>
-        <div class="ai-rec-value">8534.00.9000</div>
-      </div>
-      <div class="field"><label>Override HS Code</label><input type="text" value="8542.31.0000"></div>
-      <div class="field"><label>Reason for override <span class="required">*</span></label><textarea rows="3">Multi-chip module confirmed by supplier datasheet Rev.C. Reclassified as IC per HS 8542.31.</textarea></div>
-    </div>
-    <div class="modal-foot">
-      <button class="btn" onclick="closeModal('editModal')">Cancel</button>
-      <button class="btn btn-primary" onclick="closeModal('editModal')"><i class="ti ti-check"></i> Save Override</button>
-    </div>
-  </div>
-</div>
-
-<!-- Modal: Escalate -->
 <div class="overlay" id="escalateModal">
   <div class="modal">
     <div class="modal-head">
@@ -447,16 +747,19 @@
           <option>Priya Nair — Compliance Manager</option>
         </select>
       </div>
-      <div class="field"><label>Notes</label><textarea rows="3">32-layer BGA — unclear if product meets 8534 (PCB) or 8542 (IC). Supplier datasheet ambiguous. Please advise.</textarea></div>
+      <div class="field"><label>Notes</label>
+        <textarea rows="3" placeholder="Describe the issue requiring escalation…"></textarea>
+      </div>
     </div>
     <div class="modal-foot">
       <button class="btn" onclick="closeModal('escalateModal')">Cancel</button>
-      <button class="btn btn-amber" onclick="closeModal('escalateModal')"><i class="ti ti-send"></i> Send to Senior</button>
+      <button class="btn btn-amber" onclick="closeModal('escalateModal')">
+        <i class="ti ti-send"></i> Send to Senior
+      </button>
     </div>
   </div>
 </div>
 
-<!-- Modal: Submit -->
 <div class="overlay" id="batchModal">
   <div class="modal">
     <div class="modal-head">
@@ -468,44 +771,33 @@
       <div class="submit-stats">
         <div class="submit-stat">
           <div class="submit-stat-label">Approved</div>
-          <div class="submit-stat-value teal">47</div>
-          <div class="submit-stat-note">items ready</div>
+          <div class="submit-stat-value teal" id="modalApproved">—</div>
+          <div class="submit-stat-note">ready to submit</div>
         </div>
         <div class="submit-stat">
-          <div class="submit-stat-label">Pending Review</div>
-          <div class="submit-stat-value red">3</div>
-          <div class="submit-stat-note">items flagged</div>
+          <div class="submit-stat-label">Flagged</div>
+          <div class="submit-stat-value red" id="modalFlagged">—</div>
+          <div class="submit-stat-note">excluded from batch</div>
         </div>
       </div>
-      <div class="submit-warning">
-        <i class="ti ti-alert-triangle"></i>
-        3 flagged items remain in queue — not included in this submission.
-      </div>
       <div class="submit-desc">
-        Submitting will write <strong>47 approved duty figures</strong> to SAP S/4HANA, tagged with your employee ID (SL-04412) and timestamp. A PDF compliance report will be archived automatically.
+        Submitting will write approved duty figures to SAP S/4HANA, tagged with your employee ID and timestamp.
       </div>
     </div>
     <div class="modal-foot">
       <button class="btn" onclick="closeModal('batchModal')">Cancel</button>
-      <button class="btn btn-primary" onclick="submitBatch()"><i class="ti ti-check"></i> Confirm &amp; Submit 47 Items</button>
+      <button class="btn btn-primary" onclick="submitBatch()">
+        <i class="ti ti-check"></i> Confirm &amp; Submit
+      </button>
     </div>
   </div>
 </div>
 
-<!-- Toast notification -->
-<div id="toast" style="
-  position:fixed;bottom:24px;right:24px;z-index:9999;
-  background:#0d9488;color:#fff;padding:10px 18px;
-  border-radius:6px;font-size:12px;font-family:var(--mono);
-  max-width:380px;line-height:1.4;
-  opacity:0;transition:opacity .3s;pointer-events:none">
+<!-- Toast -->
+<div id="toast">
+  <span id="toastMsg"></span>
+  <button id="toastClose" title="Close" onclick="clearTimeout(this.parentElement._autoClose);this.parentElement.classList.remove('show')">&times;</button>
 </div>
-
-<style>
-#toast.show { opacity: 1; }
-.spin { animation: spin .8s linear infinite; display:inline-block; }
-@keyframes spin { to { transform: rotate(360deg); } }
-</style>
 
 <script src="js/api.js"></script>
 <script src="js/app.js"></script>

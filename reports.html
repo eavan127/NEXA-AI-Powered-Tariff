@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NEXA · Analytics</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.2.0/tabler-icons.min.css">
+<link rel="stylesheet" href="css/styles.css">
+<style>
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-xl); margin-bottom: var(--sp-xl); }
+@media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
+.section-hd {
+  font-size: 10.5px; font-weight: 500; letter-spacing: 1.3px;
+  text-transform: uppercase; color: var(--muted-soft);
+  padding-bottom: 8px; border-bottom: 1px solid var(--hairline-soft);
+  margin-bottom: 14px;
+}
+.top-tbl-row {
+  display: grid; grid-template-columns: 60px 90px 1fr 70px 80px;
+  gap: 8px; align-items: center; padding: 9px var(--sp-lg);
+  border-bottom: 1px solid var(--hairline-soft); font-size: 12.5px; cursor: pointer;
+}
+.top-tbl-row:last-child { border-bottom: none; }
+.top-tbl-row:hover { background: var(--surface-soft); }
+.top-tbl-head {
+  background: var(--surface-soft); border-bottom: 1px solid var(--hairline-soft);
+  padding: 8px var(--sp-lg);
+}
+.top-tbl-head span { font-size: 10px; font-weight: 500; letter-spacing: 1px; text-transform: uppercase; color: var(--muted-soft); }
+.stat-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--hairline-soft); font-size: 12.5px; }
+.stat-row:last-child { border-bottom: none; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ── Sidebar ─────────────────────────────────────── -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-row">
+        <div class="logo-mark">
+          <svg viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M7.5 1v2M7.5 12v2M1 7.5h2M12 7.5h2M2.87 2.87l1.41 1.41M10.72 10.72l1.41 1.41M12.13 2.87l-1.41 1.41M4.28 10.72l-1.41 1.41" stroke="#a09d96" stroke-width="1.4" stroke-linecap="round"/>
+            <circle cx="7.5" cy="7.5" r="2" fill="#cc785c"/>
+          </svg>
+        </div>
+        <span class="logo-wordmark">NEXA Trade AI</span>
+      </div>
+      <div class="logo-sub">Jabil · Global Trade Compliance</div>
+    </div>
+    <nav class="nav">
+      <div class="nav-section">
+        <div class="nav-label">Analysis</div>
+        <div class="nav-item" data-page="index" onclick="location='index.html'"><i class="ti ti-search"></i> Shipment Lookup</div>
+        <div class="nav-item" data-page="shipments" onclick="location='shipments.html'"><i class="ti ti-list-check"></i> All Shipments</div>
+        <div class="nav-item" data-page="audit" onclick="location='audit.html'"><i class="ti ti-clock-history"></i> Audit Trail</div>
+      </div>
+      <div class="nav-section">
+        <div class="nav-label">Intelligence</div>
+        <div class="nav-item" data-page="fta-library" onclick="location='fta-library.html'"><i class="ti ti-world"></i> FTA Library</div>
+        <div class="nav-item" data-page="reports" onclick="location='reports.html'"><i class="ti ti-chart-bar"></i> Analytics</div>
+      </div>
+      <div class="nav-section">
+        <div class="nav-label">System</div>
+        <div class="nav-item" onclick="runSeedAndRefresh()"><i class="ti ti-database"></i> Re-Seed Data</div>
+        <div class="nav-item" onclick="showToast('Configuration — coming soon')"><i class="ti ti-settings"></i> Configuration</div>
+      </div>
+    </nav>
+    <div class="sidebar-user">
+      <div class="user-card">
+        <div class="avatar">SL</div>
+        <div>
+          <div class="user-name">Sarah Lim</div>
+          <div class="user-role">Trade Compliance Analyst</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ── Main ────────────────────────────────────────── -->
+  <div class="main">
+    <div class="topbar">
+      <div class="topbar-crumb">
+        NEXA <i class="ti ti-chevron-right"></i> <strong>Analytics</strong>
+      </div>
+      <div class="live-row"><div class="live-dot"></div> Live · Supabase</div>
+      <button class="btn" onclick="loadPage()"><i class="ti ti-refresh"></i> Refresh</button>
+      <button class="btn" onclick="exportCSV()"><i class="ti ti-download"></i> Export CSV</button>
+    </div>
+
+    <div class="content">
+
+      <!-- Page header -->
+      <div class="page-head-row" style="margin-bottom:var(--sp-xl)">
+        <div>
+          <div class="page-eyebrow">Reporting &amp; Insights</div>
+          <div class="page-title">Analytics</div>
+          <div class="page-meta" id="reportMeta">Loading…</div>
+        </div>
+      </div>
+
+      <!-- KPI row -->
+      <div class="kpi-row">
+        <div class="kpi teal">
+          <div class="kpi-label">Total FTA Savings</div>
+          <div class="kpi-val" id="rSaving">—</div>
+          <div class="kpi-note">duty identified for savings</div>
+        </div>
+        <div class="kpi coral">
+          <div class="kpi-label">Avg AI Confidence</div>
+          <div class="kpi-val" id="rAvgConf">—</div>
+          <div class="kpi-note">HS classification quality</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">FTA Coverage Rate</div>
+          <div class="kpi-val" id="rFtaCoverage">—</div>
+          <div class="kpi-note">shipments with an FTA</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Compliance Rate</div>
+          <div class="kpi-val" id="rCompliance">—</div>
+          <div class="kpi-note">approved / not flagged</div>
+        </div>
+      </div>
+
+      <!-- Row 1: FTA savings + Status distribution -->
+      <div class="two-col">
+
+        <!-- FTA savings breakdown -->
+        <div class="panel">
+          <div class="panel-head">
+            <i class="ti ti-chart-bar" style="color:var(--teal);font-size:15px"></i>
+            <span class="panel-title">FTA Savings by Agreement</span>
+          </div>
+          <div style="padding:var(--sp-lg)">
+            <div class="section-hd">Duty saved · sorted by value</div>
+            <div id="savingsChart">
+              <div style="color:var(--muted-soft);font-size:12px;text-align:center;padding:20px">
+                <i class="ti ti-loader-2 spin" style="display:block;font-size:20px;margin-bottom:6px"></i>Loading…
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Status distribution -->
+        <div class="panel">
+          <div class="panel-head">
+            <i class="ti ti-pie-chart" style="color:var(--primary);font-size:15px"></i>
+            <span class="panel-title">Shipment Status Distribution</span>
+          </div>
+          <div style="padding:var(--sp-lg)">
+            <div class="section-hd">Current status breakdown</div>
+            <div id="statusChart"></div>
+            <div style="margin-top:var(--sp-lg)">
+              <div class="section-hd">Origin Country Mix</div>
+              <div id="originChart"></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Row 2: Module pipeline + Confidence dist -->
+      <div class="two-col">
+
+        <!-- Module pipeline -->
+        <div class="panel">
+          <div class="panel-head">
+            <i class="ti ti-git-merge" style="color:var(--primary);font-size:15px"></i>
+            <span class="panel-title">AI Pipeline Completion</span>
+          </div>
+          <div style="padding:var(--sp-lg)" id="pipelinePanel"></div>
+        </div>
+
+        <!-- Confidence distribution -->
+        <div class="panel">
+          <div class="panel-head">
+            <i class="ti ti-brain" style="color:var(--teal);font-size:15px"></i>
+            <span class="panel-title">AI Confidence Distribution</span>
+          </div>
+          <div style="padding:var(--sp-lg)">
+            <div class="section-hd">Module A confidence scores across all shipments</div>
+            <div id="confDist"></div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Top Shipments by Saving -->
+      <div class="panel" style="margin-bottom:var(--sp-xl)">
+        <div class="panel-head">
+          <i class="ti ti-trophy" style="color:var(--amber);font-size:15px"></i>
+          <span class="panel-title">Top Shipments by FTA Saving</span>
+          <span class="panel-meta">highest duty savings identified</span>
+        </div>
+        <div class="top-tbl-row top-tbl-head">
+          <span>Shipment</span><span>HS Code</span><span>Product</span>
+          <span>FTA</span><span style="text-align:right">Saving</span>
+        </div>
+        <div id="topSavings"></div>
+      </div>
+
+    </div><!-- /content -->
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<!-- Toast -->
+<div id="toast">
+  <span id="toastMsg"></span>
+  <button id="toastClose" title="Close" onclick="clearTimeout(this.parentElement._autoClose);this.parentElement.classList.remove('show')">&times;</button>
+</div>
+
+<script src="js/shared.js"></script>
+<script src="js/api.js"></script>
+<script src="js/reports.js"></script>
+</body>
+</html>
