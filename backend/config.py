@@ -1,4 +1,5 @@
 from pydantic_settings import BaseSettings
+from supabase import create_client, Client
 
 class Settings(BaseSettings): #creating own class name and inherit from base settings
     #this base settings give us to auto red from .env files
@@ -21,3 +22,6 @@ class Settings(BaseSettings): #creating own class name and inherit from base set
         env_file = "../.env"
 
 settings = Settings()
+
+def get_supabase_client() -> Client:
+    return create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)

@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException, Request
 from api.schemas import ProcessBatchRequest, ApproveRequest, RejectRequest, OverrideHSRequest
+from classifier.hs_classifier import classify_hs_code
 
 router = APIRouter()
 
@@ -89,5 +90,22 @@ async def get_summary(request: Request):
             "pending": pending,
             "total_fta_saving_usd": round(total_saving, 2)
         }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# Module A — HS Code Classification
+@router.post("/api/classify/{shipment_id}")
+async def classify_shipment(shipment_id: str, request: Request):
+    try:
+        supabase = request.app.state.supabase
+        result = classify_hs_code(shipment_id, supabase)
+        return {
+            "status": "ok",
+            "shipment_id": shipment_id,
+            "classification": result
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
