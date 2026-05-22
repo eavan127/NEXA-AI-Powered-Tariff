@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NEXA · All Shipments</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.2.0/tabler-icons.min.css">
+<link rel="stylesheet" href="css/styles.css">
+<style>
+/* Override table grid for 8 columns */
+.tbl-head, .tbl-row {
+  grid-template-columns: 76px 78px 1fr 90px 72px 68px 82px 100px;
+}
+@media (max-width: 900px) {
+  .tbl-head, .tbl-row { grid-template-columns: 66px 70px 1fr 80px 60px 88px; }
+  .tbl-head span:nth-child(n+7), .tbl-row > *:nth-child(n+7) { display: none; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ── Sidebar ─────────────────────────────────────── -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-row">
+        <div class="logo-mark">
+          <svg viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M7.5 1v2M7.5 12v2M1 7.5h2M12 7.5h2M2.87 2.87l1.41 1.41M10.72 10.72l1.41 1.41M12.13 2.87l-1.41 1.41M4.28 10.72l-1.41 1.41" stroke="#a09d96" stroke-width="1.4" stroke-linecap="round"/>
+            <circle cx="7.5" cy="7.5" r="2" fill="#cc785c"/>
+          </svg>
+        </div>
+        <span class="logo-wordmark">NEXA Trade AI</span>
+      </div>
+      <div class="logo-sub">Jabil · Global Trade Compliance</div>
+    </div>
+    <nav class="nav">
+      <div class="nav-section">
+        <div class="nav-label">Analysis</div>
+        <div class="nav-item" data-page="index" onclick="location='index.html'"><i class="ti ti-search"></i> Shipment Lookup</div>
+        <div class="nav-item" data-page="shipments" onclick="location='shipments.html'"><i class="ti ti-list-check"></i> All Shipments</div>
+        <div class="nav-item" data-page="audit" onclick="location='audit.html'"><i class="ti ti-clock-history"></i> Audit Trail</div>
+      </div>
+      <div class="nav-section">
+        <div class="nav-label">Intelligence</div>
+        <div class="nav-item" data-page="fta-library" onclick="location='fta-library.html'"><i class="ti ti-world"></i> FTA Library</div>
+        <div class="nav-item" data-page="reports" onclick="location='reports.html'"><i class="ti ti-chart-bar"></i> Analytics</div>
+      </div>
+      <div class="nav-section">
+        <div class="nav-label">System</div>
+        <div class="nav-item" onclick="runSeedAndRefresh()"><i class="ti ti-database"></i> Re-Seed Data</div>
+        <div class="nav-item" onclick="showToast('Configuration — coming soon')"><i class="ti ti-settings"></i> Configuration</div>
+      </div>
+    </nav>
+    <div class="sidebar-user">
+      <div class="user-card">
+        <div class="avatar">SL</div>
+        <div>
+          <div class="user-name">Sarah Lim</div>
+          <div class="user-role">Trade Compliance Analyst</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ── Main ────────────────────────────────────────── -->
+  <div class="main">
+    <div class="topbar">
+      <div class="topbar-crumb" id="topbarCrumb">
+        NEXA <i class="ti ti-chevron-right"></i> <strong>All Shipments</strong>
+      </div>
+      <div class="live-row"><div class="live-dot"></div> Live · Supabase</div>
+      <button class="btn" onclick="loadAll()"><i class="ti ti-refresh"></i> Refresh</button>
+      <button class="btn btn-primary" onclick="openModal('batchModal')"><i class="ti ti-checks"></i> Submit Batch</button>
+    </div>
+
+    <div class="content">
+
+      <!-- Page header -->
+      <div class="page-head-row">
+        <div>
+          <div class="page-eyebrow">Batch Operations</div>
+          <div class="page-title">All Shipments</div>
+          <div class="page-meta" id="pageMeta">Loading…</div>
+        </div>
+        <button class="btn btn-primary" onclick="doBulk()">
+          <i class="ti ti-player-play"></i> Run All Pending (A + B)
+        </button>
+      </div>
+
+      <!-- KPI row -->
+      <div class="kpi-row">
+        <div class="kpi">
+          <div class="kpi-label">Total Shipments</div>
+          <div class="kpi-val" id="kTotal">—</div>
+          <div class="kpi-note"><span id="kPend">—</span> pending</div>
+        </div>
+        <div class="kpi teal">
+          <div class="kpi-label">FTA Savings Identified</div>
+          <div class="kpi-val" id="kSaving">—</div>
+          <div class="kpi-note">total duty saved</div>
+        </div>
+        <div class="kpi coral">
+          <div class="kpi-label">Approved</div>
+          <div class="kpi-val" id="kApproved">—</div>
+          <div class="kpi-note">ready for SAP writeback</div>
+        </div>
+        <div class="kpi red">
+          <div class="kpi-label">Flagged for Review</div>
+          <div class="kpi-val" id="kFlagged">—</div>
+          <div class="kpi-note">analyst action required</div>
+        </div>
+      </div>
+
+      <!-- Pipeline progress -->
+      <div class="panel" style="margin-bottom:var(--sp-lg)">
+        <div class="panel-head">
+          <i class="ti ti-git-merge" style="color:var(--primary);font-size:15px"></i>
+          <span class="panel-title">AI Pipeline Progress</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 28px 1fr 28px 1fr;align-items:center;padding:18px 24px;gap:6px">
+          <div style="text-align:center">
+            <div style="font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted-soft);margin-bottom:6px">Module A · HS Classification · Teammate A ✓</div>
+            <div style="font-size:26px;font-weight:600;color:var(--teal);font-family:var(--serif)" id="pipeA">—</div>
+            <div style="font-size:11px;color:var(--muted-soft);margin-top:2px">AI classified</div>
+            <div class="progress-track" style="margin-top:10px"><div class="progress-fill" id="pipeABar" style="width:0%;background:var(--teal)"></div></div>
+          </div>
+          <div style="text-align:center;color:var(--muted-soft);font-size:18px">→</div>
+          <div style="text-align:center">
+            <div style="font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted-soft);margin-bottom:6px">Module B · FTA Matching · You ✓</div>
+            <div style="font-size:26px;font-weight:600;color:var(--primary);font-family:var(--serif)" id="pipeB">—</div>
+            <div style="font-size:11px;color:var(--muted-soft);margin-top:2px">FTAs matched</div>
+            <div class="progress-track" style="margin-top:10px"><div class="progress-fill" id="pipeBBar" style="width:0%;background:var(--primary)"></div></div>
+          </div>
+          <div style="text-align:center;color:var(--muted-soft);font-size:18px">→</div>
+          <div style="text-align:center">
+            <div style="font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:#d97706;margin-bottom:6px">Module C · Landed Cost · Teammate C ⬅ Build This</div>
+            <div style="font-size:26px;font-weight:600;color:#d97706;font-family:var(--serif)" id="pipeC">0</div>
+            <div style="font-size:11px;color:var(--muted-soft);margin-top:2px">costs calculated</div>
+            <div class="progress-track" style="margin-top:10px"><div class="progress-fill" id="pipeCBar" style="width:0%;background:#d97706"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Shipments table -->
+      <div class="panel">
+        <div class="panel-head">
+          <i class="ti ti-list-check" style="color:var(--primary);font-size:15px"></i>
+          <span class="panel-title">Shipment Register</span>
+          <span class="panel-meta" id="tableCount">—</span>
+          <span class="pill pill-processing">Live</span>
+        </div>
+        <div class="filter-bar">
+          <button class="tab active" onclick="setFilter('all',this)">All</button>
+          <button class="tab flag-tab" onclick="setFilter('flagged',this)">
+            <i class="ti ti-alert-circle" style="font-size:11px"></i> Flagged
+          </button>
+          <button class="tab" onclick="setFilter('approved',this)">
+            <i class="ti ti-check" style="font-size:11px"></i> Approved
+          </button>
+          <button class="tab" onclick="setFilter('pending',this)">Pending</button>
+          <div class="flex1"></div>
+          <button class="bulk-btn" onclick="doBulk()">
+            <i class="ti ti-player-play" style="font-size:12px"></i> Run All Pending
+          </button>
+        </div>
+        <div class="tbl-head">
+          <span>Shipment</span>
+          <span>HS Code</span>
+          <span>Product</span>
+          <span>Confidence</span>
+          <span style="text-align:right">FTA Saving</span>
+          <span>Best FTA</span>
+          <span>Status</span>
+          <span style="text-align:right">Actions</span>
+        </div>
+        <div id="tblBody">
+          <div style="padding:24px;color:var(--muted-soft);font-size:12px;text-align:center">
+            <i class="ti ti-loader-2 spin" style="font-size:20px;display:block;margin-bottom:8px"></i>
+            Loading shipments…
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /content -->
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<!-- Submit Batch Modal -->
+<div class="overlay" id="batchModal">
+  <div class="modal">
+    <div class="modal-head">
+      <i class="ti ti-checks" style="color:var(--teal);font-size:18px"></i>
+      <span class="modal-title">Submit Batch to SAP S/4HANA</span>
+      <button class="modal-close" onclick="closeModal('batchModal')"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="submit-stats">
+        <div class="submit-stat">
+          <div class="submit-stat-label">Approved</div>
+          <div class="submit-stat-value teal" id="mApproved">—</div>
+          <div class="submit-stat-note">ready to submit</div>
+        </div>
+        <div class="submit-stat">
+          <div class="submit-stat-label">Flagged</div>
+          <div class="submit-stat-value red" id="mFlagged">—</div>
+          <div class="submit-stat-note">excluded from batch</div>
+        </div>
+      </div>
+      <div class="submit-desc">
+        Submitting will write all approved duty figures to SAP S/4HANA via the Jabil ECP integration, tagged with your employee ID and timestamp.
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeModal('batchModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="submitBatch()">
+        <i class="ti ti-check"></i> Confirm &amp; Submit
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast">
+  <span id="toastMsg"></span>
+  <button id="toastClose" title="Close" onclick="clearTimeout(this.parentElement._autoClose);this.parentElement.classList.remove('show')">&times;</button>
+</div>
+
+<script src="js/shared.js"></script>
+<script src="js/api.js"></script>
+<script src="js/shipments.js"></script>
+</body>
+</html>

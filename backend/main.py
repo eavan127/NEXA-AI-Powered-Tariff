@@ -53,12 +53,18 @@ app = FastAPI(title="Nexa AI tariff",version="1.0.0",lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    # allow request from frontend
-    allow_origins=["http://localhost:5173","http://localhost:8000"],
+    allow_origins=[
+        "http://localhost:5173",   # Vite dev server
+        "http://localhost:8000",   # backend serving static files
+        "http://localhost:3000",   # React / other dev servers
+        "http://localhost:5500",   # VS Code Live Server
+        "http://127.0.0.1:5500",   # VS Code Live Server (IP form)
+        "http://127.0.0.1:8000",   # backend (IP form)
+        "null",                    # file:// direct open in browser
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-    # allow any http header
 )
 
 @app.get("/api/health")

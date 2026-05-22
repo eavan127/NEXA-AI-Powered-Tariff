@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NEXA · FTA Library</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.2.0/tabler-icons.min.css">
+<link rel="stylesheet" href="css/styles.css">
+<style>
+/* ── HS search bar ────────────────────────────────────────── */
+.hs-search-wrap {
+  background: var(--surface-dark);
+  border-radius: var(--r-xl);
+  padding: 28px 32px;
+  margin-bottom: var(--sp-xl);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.hs-search-input {
+  flex: 1;
+  max-width: 340px;
+  height: 44px;
+  padding: 0 16px;
+  background: rgba(255,255,255,.07);
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: var(--r-md);
+  color: #faf9f5;
+  font-size: 15px;
+  font-family: var(--mono);
+  outline: none;
+  transition: border-color .15s;
+}
+.hs-search-input:focus { border-color: var(--primary); background: rgba(255,255,255,.10); }
+.hs-search-input::placeholder { color: #a09d96; }
+.hs-search-eyebrow {
+  font-size: 10px; font-weight: 500; letter-spacing: 2px;
+  text-transform: uppercase; color: #a09d96; margin-bottom: 6px;
+}
+.hs-search-title {
+  font-family: var(--serif); font-size: 20px; font-weight: 300;
+  color: #faf9f5; line-height: 1.2;
+}
+.hs-search-title span { color: var(--primary); }
+
+/* ── Results table ────────────────────────────────────────── */
+.rate-result-row {
+  display: grid;
+  grid-template-columns: 110px 130px 100px 80px 1fr;
+  gap: 8px;
+  align-items: center;
+  padding: 10px var(--sp-lg);
+  border-bottom: 1px solid var(--hairline-soft);
+  font-size: 12.5px;
+}
+.rate-result-row:last-child { border-bottom: none; }
+.rate-result-row:hover { background: var(--surface-soft); }
+.rate-result-head {
+  background: var(--surface-soft);
+  border-bottom: 1px solid var(--hairline-soft);
+  padding: 8px var(--sp-lg);
+}
+.rate-result-head span {
+  font-size: 10px; font-weight: 500;
+  letter-spacing: 1px; text-transform: uppercase; color: var(--muted-soft);
+}
+
+/* ── FTA card expand ──────────────────────────────────────── */
+.fta-expand-body {
+  overflow: hidden;
+  max-height: 0;
+  transition: max-height .3s ease;
+  background: var(--surface-soft);
+  border-top: 1px solid var(--hairline-soft);
+}
+.fta-expand-body.open { max-height: 400px; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ── Sidebar ─────────────────────────────────────── -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-row">
+        <div class="logo-mark">
+          <svg viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M7.5 1v2M7.5 12v2M1 7.5h2M12 7.5h2M2.87 2.87l1.41 1.41M10.72 10.72l1.41 1.41M12.13 2.87l-1.41 1.41M4.28 10.72l-1.41 1.41" stroke="#a09d96" stroke-width="1.4" stroke-linecap="round"/>
+            <circle cx="7.5" cy="7.5" r="2" fill="#cc785c"/>
+          </svg>
+        </div>
+        <span class="logo-wordmark">NEXA Trade AI</span>
+      </div>
+      <div class="logo-sub">Jabil · Global Trade Compliance</div>
+    </div>
+    <nav class="nav">
+      <div class="nav-section">
+        <div class="nav-label">Analysis</div>
+        <div class="nav-item" data-page="index" onclick="location='index.html'"><i class="ti ti-search"></i> Shipment Lookup</div>
+        <div class="nav-item" data-page="shipments" onclick="location='shipments.html'"><i class="ti ti-list-check"></i> All Shipments</div>
+        <div class="nav-item" data-page="audit" onclick="location='audit.html'"><i class="ti ti-clock-history"></i> Audit Trail</div>
+      </div>
+      <div class="nav-section">
+        <div class="nav-label">Intelligence</div>
+        <div class="nav-item" data-page="fta-library" onclick="location='fta-library.html'"><i class="ti ti-world"></i> FTA Library</div>
+        <div class="nav-item" data-page="reports" onclick="location='reports.html'"><i class="ti ti-chart-bar"></i> Analytics</div>
+      </div>
+      <div class="nav-section">
+        <div class="nav-label">System</div>
+        <div class="nav-item" onclick="runSeedAndRefresh()"><i class="ti ti-database"></i> Re-Seed Data</div>
+        <div class="nav-item" onclick="showToast('Configuration — coming soon')"><i class="ti ti-settings"></i> Configuration</div>
+      </div>
+    </nav>
+    <div class="sidebar-user">
+      <div class="user-card">
+        <div class="avatar">SL</div>
+        <div>
+          <div class="user-name">Sarah Lim</div>
+          <div class="user-role">Trade Compliance Analyst</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ── Main ────────────────────────────────────────── -->
+  <div class="main">
+    <div class="topbar">
+      <div class="topbar-crumb">
+        NEXA <i class="ti ti-chevron-right"></i> <strong>FTA Library</strong>
+      </div>
+      <div class="live-row"><div class="live-dot"></div> Live · Supabase</div>
+      <button class="btn" onclick="loadPage()"><i class="ti ti-refresh"></i> Refresh</button>
+    </div>
+
+    <div class="content">
+
+      <!-- Page header -->
+      <div class="page-head-row">
+        <div>
+          <div class="page-eyebrow">Trade Intelligence</div>
+          <div class="page-title">FTA Library</div>
+          <div class="page-meta">17 Malaysian free trade agreements · check HS code eligibility below</div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <div style="text-align:center;padding:12px 20px;background:var(--canvas);border:1px solid var(--hairline);border-radius:var(--r-lg)">
+            <div style="font-size:24px;font-weight:600;font-family:var(--serif);color:var(--teal)" id="ftaActiveCount">17</div>
+            <div style="font-size:10.5px;color:var(--muted-soft)">Active FTAs</div>
+          </div>
+          <div style="text-align:center;padding:12px 20px;background:var(--canvas);border:1px solid var(--hairline);border-radius:var(--r-lg)">
+            <div style="font-size:24px;font-weight:600;font-family:var(--serif);color:var(--primary)" id="ftaCountryCount">—</div>
+            <div style="font-size:10.5px;color:var(--muted-soft)">Partner Countries</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- HS Code Search -->
+      <div class="hs-search-wrap">
+        <div style="flex:1">
+          <div class="hs-search-eyebrow">Rate Lookup</div>
+          <div class="hs-search-title">Enter HS code to find<br><span>applicable FTA rates</span></div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center">
+          <input id="hsInput" class="hs-search-input" type="text"
+            placeholder="e.g. 8534, 8541.10"
+            onkeydown="if(event.key==='Enter') searchRates()">
+          <button class="btn btn-primary" style="height:44px" onclick="searchRates()">
+            <i class="ti ti-search"></i> Look Up Rates
+          </button>
+          <button class="btn" style="height:44px;color:rgba(250,249,245,.6);border-color:rgba(255,255,255,.12);background:rgba(255,255,255,.06)"
+            onclick="clearSearch()">
+            <i class="ti ti-x"></i> Clear
+          </button>
+        </div>
+      </div>
+
+      <!-- Search Results (hidden by default) -->
+      <div id="searchResults" style="display:none;margin-bottom:var(--sp-xl)">
+        <div class="panel">
+          <div class="panel-head">
+            <i class="ti ti-zoom-money" style="color:var(--teal);font-size:15px"></i>
+            <span class="panel-title">FTA Rates for HS Code: <span id="searchedCode" style="font-family:var(--mono);color:var(--primary)">—</span></span>
+            <span class="panel-meta" id="rateCount">—</span>
+          </div>
+          <div class="rate-result-row rate-result-head">
+            <span>FTA Agreement</span>
+            <span>HS Code</span>
+            <span>Origin Country</span>
+            <span>Rate</span>
+            <span>vs MFN (5%)</span>
+          </div>
+          <div id="rateBody">
+            <div style="padding:20px;color:var(--muted-soft);font-size:12px;text-align:center">
+              <i class="ti ti-loader-2 spin" style="font-size:20px;display:block;margin-bottom:6px"></i>Searching…
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- FTA Grid -->
+      <div style="margin-bottom:var(--sp-md)">
+        <div style="font-size:11px;font-weight:500;letter-spacing:1.3px;text-transform:uppercase;color:var(--muted-soft)">
+          All 17 Agreements — click any card for details
+        </div>
+      </div>
+      <div class="fta-grid" id="ftaGrid">
+        <div style="padding:20px;color:var(--muted-soft);font-size:12px">
+          <i class="ti ti-loader-2 spin" style="font-size:20px;display:block;margin-bottom:6px"></i>Loading…
+        </div>
+      </div>
+
+    </div><!-- /content -->
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<!-- Toast -->
+<div id="toast">
+  <span id="toastMsg"></span>
+  <button id="toastClose" title="Close" onclick="clearTimeout(this.parentElement._autoClose);this.parentElement.classList.remove('show')">&times;</button>
+</div>
+
+<script src="js/shared.js"></script>
+<script src="js/api.js"></script>
+<script src="js/fta-library.js"></script>
+</body>
+</html>
