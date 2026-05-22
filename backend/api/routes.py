@@ -91,3 +91,13 @@ async def get_summary(request: Request):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/api/match-fta/{shipment_id}")
+async def match_fta_endpoint(shipment_id: str, request: Request):
+    try:
+        from calculator.fta_matcher import match_fta
+        supabase = request.app.state.supabase
+        result = await match_fta(shipment_id, supabase)
+        return {"status": "ok", "data": result}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
