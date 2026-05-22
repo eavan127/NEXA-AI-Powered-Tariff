@@ -440,12 +440,16 @@ async def run_seed() -> dict:
 
     await seed_additional_fta_data()
 
+    mock_cls_count = await seed_mock_classifications()
+    print(f"[seed] Mock classifications: {mock_cls_count} seeded")
+
     print("[seed] Database seed complete!\n")
 
     return {
-        "shipments":    shipments_count,
-        "hs_reference": hs_count,
-        "tariff_rates": "seeded",
-        "fta_data":     "seeded"
+        "shipments":         shipments_count,
+        "hs_reference":      hs_count,
+        "tariff_rates":      "seeded",
+        "fta_data":          "seeded",
+        "mock_classifications": mock_cls_count,
     }
 

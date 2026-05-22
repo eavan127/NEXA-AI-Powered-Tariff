@@ -531,11 +531,18 @@ async function doBulk() {
 
 /* ─── Seed ───────────────────────────────────────────────────────── */
 async function runSeedAndRefresh() {
-  showToast('Seeding database…')
+  showToast('Seeding database… please wait')
   try {
     const r = await runSeed()
-    showToast(`✓ Seed done — ${r.result?.shipments||0} shipments`)
-    await loadShipments(); await loadSummary()
+    const n   = r.result?.shipments || 0
+    const cls = r.result?.mock_classifications || 0
+    showToast(`✓ Seed done — ${n} shipments, ${cls} classifications loaded`)
+    await loadShipments()
+    await loadSummary()
+    // Refresh the displayed shipment so the result section is not stale
+    if (currentShip) {
+      await reloadCurrentShipment(currentShip.sap_shipment_id)
+    }
   } catch(e) { showToast('Seed failed: ' + e.message, true) }
 }
 

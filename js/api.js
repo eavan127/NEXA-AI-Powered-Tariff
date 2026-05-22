@@ -81,5 +81,9 @@ async function uploadShipmentPDF(file) {
 /* ── Seed ─────────────────────────────────────────────────────── */
 async function runSeed() {
   const res = await fetch(`${API}/api/seed`, { method: 'POST' })
+  if (!res.ok) {
+    const e = await res.json().catch(() => ({ detail: res.statusText }))
+    throw new Error(e.detail || `HTTP ${res.status}`)
+  }
   return res.json()
 }
