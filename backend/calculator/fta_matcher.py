@@ -1,8 +1,8 @@
 #  module b (fta_matcher)
-from supabase import Client 
+from supabase import Client
 
-# mock data for module b tetsing only, 
-# to do without mocdule A 
+# mock data for module b tetsing only,
+# to do without mocdule A
 MOCK_CLASSIFICATIONS = {
     "SHIP001": {"final_hs_code": "8534.00", "confidence_score": 94},
     "SHIP002": {"final_hs_code": "8501.52", "confidence_score": 89},
@@ -11,31 +11,31 @@ MOCK_CLASSIFICATIONS = {
     "SHIP005": {"final_hs_code": "9001.90", "confidence_score": 95},
 }
 
-#  get the HS code form the fta_results form module A 
+#  get the HS code form the fta_results form module A
 def get_hs_code(sap_shipment_id:str,shipment_uuid:str,supabase:Client) -> dict:
     result = supabase.table("hs_classifications").select("final_hs_code,confidence_score,module_a_status").eq("shipment_id",shipment_uuid).execute()
 
     if result.data:
-        # real module A data exists then use it 
+        # real module A data exists then use it
         return result.data[0]
 
-    # if no, then fallback to the mock data just now 
+    # if no, then fallback to the mock data just now
     mock = MOCK_CLASSIFICATIONS.get(sap_shipment_id)
     if mock:
         print(f"[fta_matcher] Using mock classification for {sap_shipment_id}")
-        return{
-            "final_hs_code":mock["final_hs_code"],
-            "confidence_score":mock["confidence_score"],
+        return {
+            "final_hs_code":    mock["final_hs_code"],
+            "confidence_score": mock["confidence_score"],
             "module_a_status":  "auto_passed"
         }
-    
+
     return None
 
-#  step 2 - find which fta include the country of origin 
-def get_candidate_ftas(origin_country:str,supabase:Client) -> list:
+#  step 2 - find which fta include the country of origin
+def get_candidate_ftas(origin_country:str, supabase:Client) -> list:
     result = supabase.table("fta_coverage").select(
         "fta_name, member_countries"
-    ).execute() 
+    ).execute()
 
     candidates = []
 
@@ -44,27 +44,27 @@ def get_candidate_ftas(origin_country:str,supabase:Client) -> list:
 
         if origin_country in members:
             candidates.append(row["fta_name"])
-        
-    return candidates 
-    # fta candidates or country candidates 
 
-# step 3 - check if fta qualified based on ROO rules 
-def check_one_fta(fta_name: str, hs_code: str,origin_country: str, supplier_rvc: float, supabase: Client) -> dict:
+    return candidates
+    # fta candidates or country candidates
+
+# step 3 - check if fta qualified based on ROO rules
+def check_one_fta(fta_name: str, hs_code: str, origin_country: str, supplier_rvc: float, supabase: Client) -> dict:
     rate_result = supabase.table("fta_rates").select("preferential_rate_pct").eq("fta_name", fta_name).eq("hs_code", hs_code).eq("origin_country", origin_country).execute()
-        #  condition 
+    #  condition
 
     if not rate_result.data:
         return {"fta_name": fta_name, "qualifies": False, "reason": "No rate found"}
-    
+
     rate = rate_result.data[0]["preferential_rate_pct"]
-    
-    # get ROO rules 
+
+    # get ROO rules
     roo_result = supabase.table("roo_rules").select(
         "roo_type, rvc_threshold_pct, tariff_shift_description"
         ).eq("fta_name", fta_name).eq("hs_code", hs_code).execute()
 
     if not roo_result.data:
-    return {"fta_name": fta_name, "qualifies": False, "reason": "No RoO rule found"}
+        return {"fta_name": fta_name, "qualifies": False, "reason": "No RoO rule found"}
 
     roo = roo_result.data[0]
     roo_type = roo["roo_type"]
@@ -74,41 +74,41 @@ def check_one_fta(fta_name: str, hs_code: str,origin_country: str, supplier_rvc:
         threshold = roo["rvc_threshold_pct"]
         passed = supplier_rvc >= threshold
         return {
-            "fta_name":   fta_name,
-            "qualifies":  passed,
-            "rate":       rate,
-            "roo_type":   roo_type,
-            "threshold":  threshold,
+            "fta_name":     fta_name,
+            "qualifies":    passed,
+            "rate":         rate,
+            "roo_type":     roo_type,
+            "threshold":    threshold,
             "rvc_declared": supplier_rvc,
-            "reason":     f"RVC {supplier_rvc}% {'≥' if passed else '<'} threshold {threshold}%"
+            "reason":       f"RVC {supplier_rvc}% {'≥' if passed else '<'} threshold {threshold}%"
         }
 
     elif roo_type == "tariff_shift":
-    # Tariff shift,  for POC we assume it passes if rule exists
-    return {
-        "fta_name":  fta_name,
-        "qualifies": True,
-        "rate":      rate,
-        "roo_type":  roo_type,
-        "threshold": 0,
-        "rvc_declared": 0,
-        "reason":    f"Tariff shift rule met: {roo['tariff_shift_description']}"
-    }
+        # Tariff shift,  for POC we assume it passes if rule exists
+        return {
+            "fta_name":     fta_name,
+            "qualifies":    True,
+            "rate":         rate,
+            "roo_type":     roo_type,
+            "threshold":    0,
+            "rvc_declared": 0,
+            "reason":       f"Tariff shift rule met: {roo['tariff_shift_description']}"
+        }
 
     elif roo_type == "wholly_obtained":
-    # For POC — flag as conditional, analyst reviews
-    return {
-    "fta_name":  fta_name,
-    "qualifies": False,
-    "rate":      rate,
-    "roo_type":  roo_type,
-    "reason":    "Wholly obtained rule requires analyst verification. "
-                    "Electronics rarely qualify. Analyst must confirm."
-    }
+        # For POC — flag as conditional, analyst reviews
+        return {
+            "fta_name":  fta_name,
+            "qualifies": False,
+            "rate":      rate,
+            "roo_type":  roo_type,
+            "reason":    "Wholly obtained rule requires analyst verification. "
+                         "Electronics rarely qualify. Analyst must confirm."
+        }
 
     return {"fta_name": fta_name, "qualifies": False, "reason": "Unknown RoO type"}
 
-#  main function 
+#  main function
 async def match_fta(shipment_id: str, supabase: Client) -> dict:
     try:
         # Get shipment data
@@ -136,7 +136,7 @@ async def match_fta(shipment_id: str, supabase: Client) -> dict:
 
         hs_code = classification["final_hs_code"]
 
-        # Get MFN rate , fallback if no fta matches 
+        # Get MFN rate , fallback if no fta matches
         mfn_result = supabase.table("tariff_rates").select(
             "mfn_rate_pct"
         ).eq("hs_code", hs_code).execute()
@@ -148,8 +148,8 @@ async def match_fta(shipment_id: str, supabase: Client) -> dict:
               f"HS={hs_code} | candidates={candidates}")
 
         # Check each FTA
-        all_checked  = []
-        qualifying   = []
+        all_checked = []
+        qualifying  = []
 
         for fta_name in candidates:
             result = check_one_fta(
@@ -181,8 +181,8 @@ async def match_fta(shipment_id: str, supabase: Client) -> dict:
             module_status = "mfn_applied" if candidates else "no_fta_available"
 
         # Calculate duty saving
-        mfn_duty   = (mfn_rate / 100) * cif_value
-        fta_duty   = (fta_rate / 100) * cif_value
+        mfn_duty    = (mfn_rate / 100) * cif_value
+        fta_duty    = (fta_rate / 100) * cif_value
         duty_saving = round(mfn_duty - fta_duty, 2)
 
         # Save to fta_results
@@ -204,14 +204,14 @@ async def match_fta(shipment_id: str, supabase: Client) -> dict:
               f"({fta_rate}%) | saving=${duty_saving}")
 
         return {
-            "shipment_id":    shipment_id,
-            "hs_code":        hs_code,
-            "origin":         origin,
-            "best_fta":       best_fta_name,
-            "fta_rate_pct":   fta_rate,
-            "mfn_rate_pct":   mfn_rate,
+            "shipment_id":     shipment_id,
+            "hs_code":         hs_code,
+            "origin":          origin,
+            "best_fta":        best_fta_name,
+            "fta_rate_pct":    fta_rate,
+            "mfn_rate_pct":    mfn_rate,
             "duty_saving_usd": duty_saving,
-            "status":         module_status
+            "status":          module_status
         }
 
     except Exception as e:

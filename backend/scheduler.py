@@ -30,7 +30,7 @@ except ImportError:
         return {}
 
 
-# ── Startup seed jobs 
+# ── Startup seed jobs ─────────────────────────────────────────────
 async def _run_startup_seeds():
     try:
         from config import settings
