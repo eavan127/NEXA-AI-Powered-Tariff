@@ -89,24 +89,93 @@
       <!-- KPIs -->
       <div class="kpi-row">
         <div class="kpi">
-          <div class="kpi-label">Items Processed</div>
-          <div class="kpi-val">47<span class="unit">/ 50</span></div>
-          <div class="kpi-note">3 pending <span class="hi">→</span></div>
+          <div class="kpi-label">Shipments</div>
+          <div class="kpi-val" id="kpiTotal">—</div>
+          <div class="kpi-note"><span id="kpiPending">—</span> pending</div>
         </div>
         <div class="kpi teal">
-          <div class="kpi-label">Time Saved</div>
-          <div class="kpi-val">12.2<span class="unit">h</span></div>
-          <div class="kpi-note">vs 12.5 h manual baseline</div>
-        </div>
-        <div class="kpi coral">
           <div class="kpi-label">FTA Savings Identified</div>
-          <div class="kpi-val">$4,820</div>
-          <div class="kpi-note"><span class="pos">↑</span> 8 items on CPTPP preferential</div>
+          <div class="kpi-val" id="kpiSaving">—</div>
+          <div class="kpi-note">duty saved via FTA matching</div>
         </div>
         <div class="kpi red">
-          <div class="kpi-label">Items Flagged</div>
-          <div class="kpi-val">3</div>
-          <div class="kpi-note">Require manual review</div>
+          <div class="kpi-label">Flagged for Review</div>
+          <div class="kpi-val" id="kpiFlagged">—</div>
+          <div class="kpi-note">require analyst action</div>
+        </div>
+        <div class="kpi coral">
+          <div class="kpi-label">Module C Status</div>
+          <div class="kpi-val" style="font-size:18px;color:var(--amber)">Pending</div>
+          <div class="kpi-note">Landed Cost — next to build</div>
+        </div>
+      </div>
+
+      <!-- ── AI PIPELINE OVERVIEW ──────────────────────────────── -->
+      <div class="panel" style="margin-bottom:16px">
+        <div class="panel-head">
+          <i class="ti ti-git-merge" style="color:var(--primary);font-size:15px"></i>
+          <span class="panel-title">AI Processing Pipeline</span>
+          <span class="panel-meta">Select any shipment row to see each module's output in the panel on the right</span>
+          <button class="btn" style="margin-left:auto;font-size:11px" onclick="runSeedAndRefresh()">
+            <i class="ti ti-database"></i> Re-Seed DB
+          </button>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 28px 1fr 28px 1fr;align-items:stretch;padding:16px 20px;gap:0">
+
+          <!-- Module A -->
+          <div style="border:1px solid var(--border);border-radius:8px;padding:16px">
+            <div style="font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted-soft);margin-bottom:6px">Teammate A · COMPLETE ✓</div>
+            <div style="font-size:14px;font-weight:600;color:var(--ink);margin-bottom:2px">Module A</div>
+            <div style="font-size:11.5px;color:var(--muted-soft);margin-bottom:12px">HS Code Classification</div>
+            <div style="font-size:11px;line-height:1.8;color:var(--muted-soft)">
+              <span style="color:var(--teal)">Reads:</span> product description + e2open hint<br>
+              <span style="color:var(--primary)">Uses:</span> nomic-embed-text → pgvector → llama3.2<br>
+              <span style="color:var(--primary)">Writes:</span> <span style="font-family:monospace">hs_classifications</span> table
+            </div>
+            <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border);display:flex;align-items:center;gap:6px">
+              <div style="width:8px;height:8px;border-radius:50%;background:var(--teal)"></div>
+              <span id="modACount" style="font-size:11px;color:var(--teal);font-weight:500">— / — classified</span>
+            </div>
+          </div>
+
+          <!-- Arrow -->
+          <div style="display:flex;align-items:center;justify-content:center;color:var(--muted-soft);font-size:20px">→</div>
+
+          <!-- Module B -->
+          <div style="border:2px solid var(--primary);border-radius:8px;padding:16px;background:rgba(160,157,150,.04)">
+            <div style="font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--primary);margin-bottom:6px">You · COMPLETE ✓</div>
+            <div style="font-size:14px;font-weight:600;color:var(--ink);margin-bottom:2px">Module B</div>
+            <div style="font-size:11.5px;color:var(--muted-soft);margin-bottom:12px">FTA Matching</div>
+            <div style="font-size:11px;line-height:1.8;color:var(--muted-soft)">
+              <span style="color:var(--teal)">Reads:</span> HS code + origin country + RVC %<br>
+              <span style="color:var(--primary)">Checks:</span> 17 Malaysian FTAs · RoO rules<br>
+              <span style="color:var(--primary)">Writes:</span> <span style="font-family:monospace">fta_results</span> table
+            </div>
+            <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border);display:flex;align-items:center;gap:6px">
+              <div style="width:8px;height:8px;border-radius:50%;background:var(--teal)"></div>
+              <span id="modBCount" style="font-size:11px;color:var(--teal);font-weight:500">— / — matched</span>
+            </div>
+          </div>
+
+          <!-- Arrow -->
+          <div style="display:flex;align-items:center;justify-content:center;color:var(--muted-soft);font-size:20px">→</div>
+
+          <!-- Module C -->
+          <div style="border:2px dashed var(--amber,#d97706);border-radius:8px;padding:16px;background:rgba(251,191,36,.05)">
+            <div style="font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--amber,#d97706);margin-bottom:6px">Teammate C · YOUR TURN ⬅</div>
+            <div style="font-size:14px;font-weight:600;color:var(--ink);margin-bottom:2px">Module C</div>
+            <div style="font-size:11.5px;color:var(--muted-soft);margin-bottom:12px">Landed Cost Calculator</div>
+            <div style="font-size:11px;line-height:1.8;color:var(--muted-soft)">
+              <span style="color:var(--teal)">Reads:</span> FTA rate (B) + CIF value (shipment)<br>
+              <span style="color:var(--amber,#d97706)">Calculates:</span> duty + SST + fees<br>
+              <span style="color:var(--amber,#d97706)">Writes:</span> <span style="font-family:monospace">landed_costs</span> table
+            </div>
+            <div style="margin-top:12px;padding-top:10px;border-top:1px solid rgba(217,119,6,.2);display:flex;align-items:center;gap:6px">
+              <div style="width:8px;height:8px;border-radius:50%;background:var(--amber,#d97706)"></div>
+              <span style="font-size:11px;color:var(--amber,#d97706);font-weight:500">0 calculated — awaiting build</span>
+            </div>
+          </div>
+
         </div>
       </div>
 
@@ -143,90 +212,100 @@
           <div id="tblBody"></div>
         </div>
 
-        <!-- Detail panel -->
+        <!-- Detail panel — dynamic, updated by app.js -->
         <div class="detail-stack">
 
+          <!-- Card 1: Shipment Info -->
           <div class="det-card">
             <div class="det-head">
               <i class="ti ti-package" style="color:var(--primary);font-size:15px"></i>
-              <span class="det-title">Item Detail — #14</span>
-              <span class="pill pill-flagged">Flagged</span>
+              <span class="det-title" id="detTitle">Select a shipment →</span>
+              <span class="pill" id="detStatusPill" style="font-size:10px">—</span>
             </div>
             <div class="det-body">
-              <div class="d-row"><span class="d-lbl">Product</span><span class="d-val" style="font-size:12px">PCB Assembly, 32-layer, BGA</span></div>
-              <div class="d-row"><span class="d-lbl">HS Code (AI)</span><span class="d-val mono">8534.00.9000</span></div>
-              <div class="d-row"><span class="d-lbl">Country of Origin</span><span class="d-val">Malaysia (Penang) <span style="color:var(--teal)">✓</span></span></div>
-              <div class="d-row"><span class="d-lbl">Shipment Value</span><span class="d-val mono">USD 148,200</span></div>
-              <div class="d-row"><span class="d-lbl">AI Confidence</span><span class="d-val amber">78% — Review Required</span></div>
+              <div class="d-row"><span class="d-lbl">Product</span><span class="d-val" id="detProduct">—</span></div>
+              <div class="d-row"><span class="d-lbl">HS Code</span><span class="d-val" id="detHS">—</span></div>
+              <div class="d-row"><span class="d-lbl">Route</span><span class="d-val" id="detOrigin">—</span></div>
+              <div class="d-row"><span class="d-lbl">CIF Value</span><span class="d-val" id="detValue">—</span></div>
+              <div class="d-row"><span class="d-lbl">Supplier RVC</span><span class="d-val" id="detRVC">—</span></div>
             </div>
           </div>
 
-          <div class="det-card">
-            <div class="det-head">
-              <i class="ti ti-world" style="color:var(--teal);font-size:15px"></i>
-              <span class="det-title">FTA Match Analysis</span>
-            </div>
-            <div class="det-body">
-              <div class="fta-row fta-best-row">
-                <span class="fta-nm">CPTPP</span>
-                <span class="fta-rate" style="color:var(--teal)">0.0%</span>
-                <span class="fta-save">Save $2,964</span>
-                <span class="fta-badge fta-cptpp">Best</span>
-              </div>
-              <div class="fta-row">
-                <span class="fta-nm">ATIGA</span>
-                <span class="fta-rate">2.5%</span>
-                <span class="fta-save" style="color:var(--muted-soft)">Save $1,685</span>
-                <span class="fta-badge fta-other">Qualify</span>
-              </div>
-              <div class="fta-row">
-                <span class="fta-nm">MFN (PDK 2022)</span>
-                <span class="fta-rate" style="color:var(--muted-soft)">5.0%</span>
-                <span class="fta-save" style="color:var(--muted-soft)">—</span>
-                <span class="fta-badge fta-mfn">Default</span>
-              </div>
-            </div>
-          </div>
-
-          <div class="det-card">
-            <div class="det-head">
-              <i class="ti ti-receipt" style="color:var(--amber);font-size:15px"></i>
-              <span class="det-title">Landed Cost Breakdown</span>
-            </div>
-            <div class="det-body">
-              <div class="cost-ln"><span class="lbl">Import Duty (CPTPP 0%)</span><span class="val" style="color:var(--teal)">$0.00</span></div>
-              <div class="cost-ln"><span class="lbl">Sales &amp; Service Tax</span><span class="val">$7,410.00</span></div>
-              <div class="cost-ln"><span class="lbl">Customs Processing Fee</span><span class="val">$185.00</span></div>
-              <div class="cost-ln"><span class="lbl">Freight (declared)</span><span class="val">$1,240.00</span></div>
-              <div class="cost-ln"><span class="lbl">Insurance</span><span class="val">$296.40</span></div>
-              <div class="cost-total"><span>Total Landed Cost</span><span class="val">USD 157,331.40</span></div>
-            </div>
-          </div>
-
+          <!-- Card 2: Module A -->
           <div class="det-card">
             <div class="det-head">
               <i class="ti ti-brain" style="color:var(--primary);font-size:15px"></i>
-              <span class="det-title">AI Reasoning Log</span>
-              <span style="font-size:10.5px;color:var(--muted-soft);font-family:var(--mono)">v2.1.4</span>
+              <span class="det-title">Module A — HS Classification</span>
+              <span class="pill" id="modAStatusPill" style="font-size:10px;border:1px solid var(--border)">Not run</span>
             </div>
-            <div class="det-body">
-              <div class="reason-item">
-                <i class="ti ti-check ri-ico" style="color:var(--teal)"></i>
-                <span class="ri-txt">HS Chapter 85 selected over Ch. 90. <strong>32-layer BGA confirms printed circuit assembly</strong> (8534), not standalone instrument. Subheading confirmed.</span>
-              </div>
-              <div class="reason-item">
-                <i class="ti ti-alert-triangle ri-ico" style="color:var(--warning)"></i>
-                <span class="ri-txt"><strong>Flagged: BGA packaging ambiguity.</strong> Supplier declaration describes component as "multi-chip module" — may alternatively classify under 8542. Confidence 78%. Review required.</span>
-              </div>
-              <div class="reason-item">
-                <i class="ti ti-check ri-ico" style="color:var(--teal)"></i>
-                <span class="ri-txt">CPTPP RoO satisfied: <strong>RVC ≥ 40%</strong> confirmed from BoM. CoO verified via OCR (SUP-PG-2026-0441.pdf).</span>
+            <div class="det-body" id="modABody">
+              <div style="color:var(--muted-soft);font-size:11.5px">
+                Click Run Module A to classify the HS code using AI.
               </div>
             </div>
             <div class="approval-bar">
-              <button class="act-btn act-approve" onclick="approveItem()"><i class="ti ti-check" style="font-size:13px"></i> Approve</button>
-              <button class="act-btn act-edit" onclick="openModal('editModal')"><i class="ti ti-edit" style="font-size:13px"></i> Edit</button>
-              <button class="act-btn act-escalate" onclick="openModal('escalateModal')"><i class="ti ti-arrow-up-right" style="font-size:13px"></i> Escalate</button>
+              <button class="act-btn act-approve" id="btnRunA" data-id="" onclick="triggerModuleA()">
+                <i class="ti ti-brain" style="font-size:13px"></i> Run Module A
+              </button>
+            </div>
+          </div>
+
+          <!-- Card 3: Module B -->
+          <div class="det-card">
+            <div class="det-head">
+              <i class="ti ti-world" style="color:var(--teal);font-size:15px"></i>
+              <span class="det-title">Module B — FTA Matching</span>
+              <span class="pill" id="modBStatusPill" style="font-size:10px;border:1px solid var(--border)">Not run</span>
+            </div>
+            <div class="det-body" id="modBBody">
+              <div style="color:var(--muted-soft);font-size:11.5px">
+                Click Run Module B to find the best FTA rate.
+              </div>
+            </div>
+            <div class="approval-bar">
+              <button class="act-btn act-edit" id="btnRunB" data-id="" onclick="triggerModuleB()">
+                <i class="ti ti-world" style="font-size:13px"></i> Run Module B
+              </button>
+              <button class="act-btn act-escalate" onclick="openModal('escalateModal')">
+                <i class="ti ti-arrow-up-right" style="font-size:13px"></i> Escalate
+              </button>
+            </div>
+          </div>
+
+          <!-- Card 4: Module C — what teammate C needs to build -->
+          <div class="det-card" style="border:1.5px dashed #d97706;background:rgba(251,191,36,.04)">
+            <div class="det-head">
+              <i class="ti ti-receipt" style="color:#d97706;font-size:15px"></i>
+              <span class="det-title">Module C — Landed Cost</span>
+              <span class="pill" style="font-size:10px;color:#d97706;border:1px solid #d97706;background:transparent">Your Module</span>
+            </div>
+            <div class="det-body">
+              <div style="font-size:11px;color:var(--muted-soft);margin-bottom:10px;padding:8px;background:rgba(251,191,36,.08);border-radius:4px;line-height:1.6">
+                <strong style="color:var(--ink)">Module C receives these inputs from A &amp; B:</strong>
+              </div>
+              <div class="d-row">
+                <span class="d-lbl">HS Code <span style="color:var(--teal);font-size:9px">(from A)</span></span>
+                <span class="d-val" id="mcHSCode">—</span>
+              </div>
+              <div class="d-row">
+                <span class="d-lbl">FTA Rate <span style="color:var(--teal);font-size:9px">(from B)</span></span>
+                <span class="d-val" id="mcFTARate">—</span>
+              </div>
+              <div class="d-row">
+                <span class="d-lbl">CIF Value <span style="color:var(--muted-soft);font-size:9px">(shipment)</span></span>
+                <span class="d-val" id="mcCIF">—</span>
+              </div>
+              <div class="d-row">
+                <span class="d-lbl">Customs Duty</span>
+                <span class="d-val" id="mcDuty" style="color:var(--teal)">—</span>
+              </div>
+              <div style="margin-top:10px;font-size:11px;color:var(--muted-soft);line-height:1.7;border-top:1px solid var(--border);padding-top:8px">
+                <strong style="color:var(--ink)">Module C also calculates:</strong><br>
+                • SST = 6% × (CIF + Duty)<br>
+                • Customs Processing Fee (flat)<br>
+                • Port + Handling Fees<br>
+                • <strong style="color:#d97706">Total Landed Cost</strong> → write to <span style="font-family:monospace">landed_costs</span>
+              </div>
             </div>
           </div>
 
@@ -413,7 +492,22 @@
   </div>
 </div>
 
-<script src="js/data.js"></script>
+<!-- Toast notification -->
+<div id="toast" style="
+  position:fixed;bottom:24px;right:24px;z-index:9999;
+  background:#0d9488;color:#fff;padding:10px 18px;
+  border-radius:6px;font-size:12px;font-family:var(--mono);
+  max-width:380px;line-height:1.4;
+  opacity:0;transition:opacity .3s;pointer-events:none">
+</div>
+
+<style>
+#toast.show { opacity: 1; }
+.spin { animation: spin .8s linear infinite; display:inline-block; }
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+
+<script src="js/api.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>
