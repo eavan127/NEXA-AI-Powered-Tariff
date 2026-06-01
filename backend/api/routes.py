@@ -221,3 +221,19 @@ async def get_all_audit_trail(request: Request):
         return {"status": "ok", "data": result.data}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# Module C — Landed Cost Calculation
+@router.post("/api/calculate-landed-cost/{shipment_id}")
+async def calculate_landed_cost_endpoint(shipment_id: str, request: Request):
+    try:
+        from calculator.landed_cost import calculate_landed_cost
+        supabase = request.app.state.supabase
+        result = await calculate_landed_cost(shipment_id, supabase)
+        if "error" in result:
+            raise HTTPException(status_code=400, detail=result["error"])
+        return {"status": "ok", "data": result}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
