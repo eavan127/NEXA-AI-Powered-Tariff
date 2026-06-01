@@ -1,0 +1,62 @@
+# Python virtual environment
+venv/
+.venv/
+
+# Python compiled files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Environment variables - NEVER commit these
+.env
+.env.local
+.env.production
+
+# Database
+*.db
+*.sqlite3
+
+# Logs
+*.log
+logs/
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# VS Code
+.vscode/
+*.code-workspace
+
+# PaddleOCR cache
+.paddleocr/
+paddle/
+
+# Playwright browsers
+playwright-browsers/
+
+# Pytest
+.pytest_cache/
+htmlcov/
+.coverage
+
+# Build outputs
+dist/
+build/
+*.egg-info/
+
+# Jupyter notebooks checkpoints
+.ipynb_checkpoints/
+
+# Node modules (for frontend)
+node_modules/
+frontend/dist/
+frontend/build/
+
+# Uploaded files / temp files
+uploads/
+temp/
+tmp/
