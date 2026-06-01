@@ -22,8 +22,10 @@ SAMPLE_SHIPMENTS = [
         "origin_country":      "Vietnam",
         "supplier_rvc_pct":    62.0,
         "bom_items": [
-            {"hs_code": "8534.00", "description": "PCB"},
-            {"hs_code": "8541.10", "description": "Diode"}
+            {"hs_code": "8534.00", "description": "PCB Assembly",
+             "quantity": 50, "unit_value_usd": 240.00, "weight_kg": 0.8},
+            {"hs_code": "8541.10", "description": "Diode",
+             "quantity": 200, "unit_value_usd": 10.00, "weight_kg": 0.02},
         ],
         "status": "pending"
     },
@@ -41,8 +43,10 @@ SAMPLE_SHIPMENTS = [
         "origin_country":      "China",
         "supplier_rvc_pct":    28.0,
         "bom_items": [
-            {"hs_code": "8501.52", "description": "Motor"},
-            {"hs_code": "8537.10", "description": "Controller"}
+            {"hs_code": "8501.52", "description": "Servo Motor",
+             "quantity": 5, "unit_value_usd": 1400.00, "weight_kg": 12.5},
+            {"hs_code": "8537.10", "description": "Motor Controller",
+             "quantity": 5, "unit_value_usd": 300.00, "weight_kg": 1.2},
         ],
         "status": "pending"
     },
@@ -60,7 +64,8 @@ SAMPLE_SHIPMENTS = [
         "origin_country":      "Vietnam",
         "supplier_rvc_pct":    0.0,
         "bom_items": [
-            {"hs_code": "7604.29", "description": "Aluminium profile"}
+            {"hs_code": "7604.29", "description": "Aluminium Heatsink Extrusion",
+             "quantity": 100, "unit_value_usd": 28.00, "weight_kg": 0.8},
         ],
         "status": "pending"
     },
@@ -77,7 +82,8 @@ SAMPLE_SHIPMENTS = [
         "origin_country":      "Taiwan",
         "supplier_rvc_pct":    0.0,
         "bom_items": [
-            {"hs_code": "8542.31", "description": "Integrated circuit"}
+            {"hs_code": "8542.31", "description": "DRAM Module DDR5",
+             "quantity": 300, "unit_value_usd": 55.00, "weight_kg": 0.05},
         ],
         "status": "flagged"
     },
@@ -95,7 +101,8 @@ SAMPLE_SHIPMENTS = [
         "origin_country":      "South Korea",
         "supplier_rvc_pct":    40.0,
         "bom_items": [
-            {"hs_code": "9001.90", "description": "Optical element"}
+            {"hs_code": "9001.90", "description": "Optical Lens Assembly",
+             "quantity": 40, "unit_value_usd": 520.00, "weight_kg": 0.15},
         ],
         "status": "pending"
     }
@@ -359,6 +366,28 @@ async def seed_mock_classifications() -> int:
     return count
 
 
+# ── Config defaults for Module C ────────────────────────────────
+async def seed_config() -> None:
+    CONFIG_DEFAULTS = [
+        ("RMCD_FX_MYR_PER_USD",     "4.67"),
+        ("is_lmw_facility",          "true"),
+        ("sales_tax_rate_pct",       "10.0"),
+        ("rmcd_declaration_fee_myr", "50.0"),
+        ("base_clearance_fee_myr",   "300.0"),
+        ("handling_fee_per_kg_myr",  "2.50"),
+        ("terminal_handling_myr",    "120.0"),
+        ("edi_fee_myr",              "15.0"),
+    ]
+    try:
+        for key, value in CONFIG_DEFAULTS:
+            supabase.table("config").upsert(
+                {"key": key, "value": value}, on_conflict="key"
+            ).execute()
+        print("[seed] ✓ Config defaults seeded")
+    except Exception as e:
+        print(f"[seed] Config seed failed: {e}")
+
+
 # ── Additional FTA rates + RoO rules for all 5 test scenarios ────
 async def seed_additional_fta_data() -> None:
 
@@ -439,6 +468,8 @@ async def run_seed() -> dict:
         print(f"[seed] FTA seed failed: {e}")
 
     await seed_additional_fta_data()
+
+    await seed_config()
 
     mock_cls_count = await seed_mock_classifications()
     print(f"[seed] Mock classifications: {mock_cls_count} seeded")
