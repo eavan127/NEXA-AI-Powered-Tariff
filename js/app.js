@@ -96,9 +96,11 @@ function updatePipelineCounts() {
   const total = SHIPMENTS.length
   const wA = SHIPMENTS.filter(s => s.hs_classifications?.length > 0).length
   const wB = SHIPMENTS.filter(s => s.fta_results?.length > 0).length
+  const wC = SHIPMENTS.filter(s => s.landed_costs?.length > 0).length
   setText('pipeACount', `${wA}/${total}`)
   setText('pipeBCount', `${wB}/${total}`)
-  setText('batchMeta',  `${total} shipments · ${wA} classified · ${wB} FTA matched`)
+  setText('pipeCCount', `${wC}/${total}`)
+  setText('batchMeta',  `${total} shipments · ${wA} classified · ${wB} FTA matched · ${wC} landed`)
   setText('tableCountMeta', `${total} total`)
 }
 
@@ -167,7 +169,8 @@ function renderShipmentResult(s, auditTrail) {
   renderModuleBCard(fta, cif)
 
   // ── Module C Card ──
-  renderModuleCCard(cls, fta, cif)
+  const lc = s.landed_costs?.[0] || null
+  renderModuleCCard(cls, fta, cif, lc)
 
   // ── Audit Trail ──
   renderAuditTrail(s.sap_shipment_id, auditTrail)
@@ -337,15 +340,96 @@ function renderModuleBCard(fta, cif) {
 }
 
 /* ─── Module C card ──────────────────────────────────────────────── */
-function renderModuleCCard(cls, fta, cif) {
+function renderModuleCCard(cls, fta, cif, lc) {
   const hs   = cls?.final_hs_code
   const rate = fta?.best_fta_rate_pct
-  const duty = (rate != null && cif) ? (rate / 100) * cif : null
 
-  setHtml('mcHS',   hs   ? `<span style="font-family:var(--mono);color:var(--teal)">${hs}</span>`         : `<span style="color:var(--muted-soft)">⬆ run Module A</span>`)
-  setHtml('mcRate', rate != null ? `<span style="font-family:var(--mono);color:var(--teal)">${rate}% (${fta.best_fta_name})</span>` : `<span style="color:var(--muted-soft)">⬆ run Module B</span>`)
-  setHtml('mcCIF',  `<span style="font-family:var(--mono)">USD ${cif.toLocaleString()}</span>`)
-  setHtml('mcTotal', duty != null ? `<span style="color:#d97706">Awaiting Module C</span>` : `Awaiting Module C`)
+  const badge = $('modCBadge')
+  if (badge) {
+    if (lc) {
+      badge.textContent = '✓ Complete'
+      badge.style.cssText = 'background:rgba(93,184,166,.12);color:var(--teal)'
+    } else {
+      badge.textContent = '⬅ Build This'
+      badge.style.cssText = 'background:rgba(217,119,6,.10);color:#d97706'
+    }
+  }
+
+  if (!lc) {
+    setHtml('mcHS',   hs   ? `<span style="font-family:var(--mono);color:var(--teal)">${hs}</span>`
+                           : `<span style="color:var(--muted-soft)">⬆ run Module A</span>`)
+    setHtml('mcRate', rate != null
+      ? `<span style="font-family:var(--mono);color:var(--teal)">${rate}% (${fta.best_fta_name})</span>`
+      : `<span style="color:var(--muted-soft)">⬆ run Module B</span>`)
+    setHtml('mcCIF',  `<span style="font-family:var(--mono)">USD ${cif.toLocaleString()}</span>`)
+    setHtml('mcTotal', `<span style="color:#d97706">Awaiting Module C</span>`)
+    return
+  }
+
+  const breakdown    = lc.cost_breakdown || []
+  const totalCifMyr  = breakdown.reduce((s, r) => s + (r.apportionment_metrics?.calculated_cif_myr      || 0), 0)
+  const totalDutyMyr = breakdown.reduce((s, r) => s + (r.regulatory_charges_myr?.customs_duty_charged   || 0), 0)
+  const totalAddMyr  = breakdown.reduce((s, r) => s + (r.regulatory_charges_myr?.anti_dumping_duty_charged || 0), 0)
+  const totalTaxMyr  = breakdown.reduce((s, r) => s + (r.regulatory_charges_myr?.sales_tax_charged      || 0), 0)
+  const fxEst        = totalCifMyr > 0 && lc.cif_value_usd > 0 ? totalCifMyr / lc.cif_value_usd : 4.67
+  const processingMyr = Math.round((lc.other_fees_usd || 0) * fxEst * 100) / 100
+  const isLmw        = breakdown[0]?.flags_applied?.is_lmw_facility ?? true
+  const hasAdd       = breakdown.some(r => r.flags_applied?.anti_dumping_matched)
+  const fmt          = n => n.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})
+
+  setHtml('modCBody', `
+    <div style="font-size:11.5px;color:var(--muted-soft);margin-bottom:10px">
+      Malaysian RMCD landed cost breakdown
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
+      ${isLmw ? `<span style="padding:3px 10px;border-radius:9999px;background:rgba(93,184,166,.1);color:var(--teal);font-size:11px;font-weight:600">✓ LMW Exempt</span>` : ''}
+      ${hasAdd ? `<span style="padding:3px 10px;border-radius:9999px;background:rgba(232,165,90,.1);color:var(--amber);font-size:11px;font-weight:600">⚠ ADD Applied</span>` : ''}
+    </div>
+    <div class="formula-row">
+      <span class="formula-lbl">HS Code <em style="font-style:normal;color:var(--teal);font-size:10px">(from A)</em></span>
+      <span class="formula-val"><span style="font-family:var(--mono);color:var(--teal)">${hs || '—'}</span></span>
+    </div>
+    <div class="formula-row">
+      <span class="formula-lbl">FTA Rate <em style="font-style:normal;color:var(--teal);font-size:10px">(from B)</em></span>
+      <span class="formula-val"><span style="font-family:var(--mono);color:var(--teal)">${rate ?? '—'}% (${fta?.best_fta_name || '—'})</span></span>
+    </div>
+    <div style="border-top:1px solid var(--hairline);margin:10px 0"></div>
+    <div class="formula-row">
+      <span class="formula-lbl">Total CIF (MYR)</span>
+      <span class="formula-val"><span style="font-family:var(--mono)">MYR ${fmt(totalCifMyr)}</span></span>
+    </div>
+    <div class="formula-row">
+      <span class="formula-lbl">Customs Duty</span>
+      <span class="formula-val" style="color:${totalDutyMyr === 0 ? 'var(--teal)' : 'var(--ink)'}">
+        <span style="font-family:var(--mono)">MYR ${fmt(totalDutyMyr)}</span>
+      </span>
+    </div>
+    ${totalAddMyr > 0 ? `
+    <div class="formula-row">
+      <span class="formula-lbl">Anti-Dumping Duty</span>
+      <span class="formula-val" style="color:var(--amber)"><span style="font-family:var(--mono)">MYR ${fmt(totalAddMyr)}</span></span>
+    </div>` : ''}
+    <div class="formula-row">
+      <span class="formula-lbl">Sales Tax (10%)</span>
+      <span class="formula-val" style="color:${totalTaxMyr === 0 ? 'var(--teal)' : 'var(--ink)'}">
+        <span style="font-family:var(--mono)">MYR ${fmt(totalTaxMyr)}</span>
+      </span>
+    </div>
+    <div class="formula-row">
+      <span class="formula-lbl">Processing Fee</span>
+      <span class="formula-val"><span style="font-family:var(--mono)">MYR ${fmt(processingMyr)}</span></span>
+    </div>
+    <div class="formula-total" style="margin-top:14px">
+      <span class="formula-total-lbl"><i class="ti ti-calculator" style="margin-right:4px"></i>Total Landed Cost</span>
+      <span class="formula-total-val" id="mcTotal" style="color:var(--teal)">
+        USD ${fmt(lc.total_landed_cost_usd || 0)}
+      </span>
+    </div>
+    ${(lc.fta_saving_usd || 0) > 0 ? `
+    <div style="margin-top:8px;text-align:center;font-size:11px;color:var(--teal);font-weight:600">
+      ↓ FTA saves USD ${fmt(lc.fta_saving_usd)} vs MFN scenario
+    </div>` : ''}
+  `)
 }
 
 /* ─── Audit Trail ────────────────────────────────────────────────── */
@@ -426,9 +510,35 @@ async function runSingleB(shipmentId) {
       showToast('Module B failed: ' + (r.detail||'unknown'), true)
     }
     await reloadCurrentShipment(shipmentId)
+    await runSingleC(shipmentId)
   } catch(e) { showToast('Module B error: ' + e.message, true) }
   finally {
     btns.forEach(b => { b.disabled = false; b.innerHTML = '<i class="ti ti-world"></i> Run Module B' })
+  }
+}
+
+async function triggerC() {
+  const id = getActiveId()
+  if (!id) { showToast('Search for a shipment first', true); return }
+  await runSingleC(id)
+}
+
+async function runSingleC(shipmentId) {
+  showToast(`⏳ Module C running for ${shipmentId}…`)
+  const btns = ['btnRunC','btnRunC2'].map(i => $(i)).filter(Boolean)
+  btns.forEach(b => { b.disabled = true; b.innerHTML = '<i class="ti ti-loader-2 spin"></i> Running…' })
+  try {
+    const r = await runModuleC(shipmentId)
+    if (r.status === 'ok') {
+      const d = r.data
+      showToast(`✓ Module C — Landed USD ${money(d?.total_landed_usd)} | LMW=${d?.is_lmw_facility}`)
+    } else {
+      showToast('Module C failed: ' + (r.detail || 'unknown'), true)
+    }
+    await reloadCurrentShipment(shipmentId)
+  } catch(e) { showToast('Module C error: ' + e.message, true) }
+  finally {
+    btns.forEach(b => { b.disabled = false; b.innerHTML = '<i class="ti ti-calculator"></i> Run Module C' })
   }
 }
 
@@ -475,10 +585,12 @@ function renderTable() {
   }
 
   setHtml('tblBody', items.map(s => {
-    const cls = s.hs_classifications?.[0] || {}
-    const fta = s.fta_results?.[0]        || {}
+    const cls  = s.hs_classifications?.[0] || {}
+    const fta  = s.fta_results?.[0]        || {}
+    const lc   = s.landed_costs?.[0]       || {}
     const hasA = !!cls.final_hs_code
     const hasB = !!fta.best_fta_name
+    const hasC = !!lc.total_landed_cost_usd
     const conf   = cls.confidence_score || 0
     const saving = fta.duty_saving_usd  || 0
     const ftaName = fta.best_fta_name || '—'
@@ -489,7 +601,7 @@ function renderTable() {
         <span>
           <div class="prod-name">${s.product_description}</div>
           <div class="prod-origin" style="display:flex;gap:8px;margin-top:2px">
-            ${pDot(hasA,'A')} ${pDot(hasB,'B')} ${pDot(false,'C')}
+            ${pDot(hasA,'A')} ${pDot(hasB,'B')} ${pDot(hasC,'C')}
           </div>
         </span>
         <span class="conf-cell">
@@ -524,6 +636,7 @@ async function doBulk() {
     const hasA = s.hs_classifications?.length > 0
     if (!hasA) await runSingleA(s.sap_shipment_id).catch(()=>{})
     await runSingleB(s.sap_shipment_id).catch(()=>{})
+    await runSingleC(s.sap_shipment_id).catch(()=>{})
   }
   showToast('✓ All pending processed')
   await loadShipments()
