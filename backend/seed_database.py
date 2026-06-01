@@ -367,7 +367,7 @@ async def seed_mock_classifications() -> int:
 
 
 # ── Config defaults for Module C ────────────────────────────────
-async def seed_config() -> None:
+async def seed_config() -> int:
     CONFIG_DEFAULTS = [
         ("RMCD_FX_MYR_PER_USD",     "4.67"),
         ("is_lmw_facility",          "true"),
@@ -378,14 +378,18 @@ async def seed_config() -> None:
         ("terminal_handling_myr",    "120.0"),
         ("edi_fee_myr",              "15.0"),
     ]
+    count = 0
     try:
         for key, value in CONFIG_DEFAULTS:
             supabase.table("config").upsert(
                 {"key": key, "value": value}, on_conflict="key"
             ).execute()
-        print("[seed] ✓ Config defaults seeded")
+            count += 1
+        print(f"[seed] ✓ Config ({count} items) seeded")
+        return count
     except Exception as e:
         print(f"[seed] Config seed failed: {e}")
+        return 0
 
 
 # ── Additional FTA rates + RoO rules for all 5 test scenarios ────
@@ -469,7 +473,7 @@ async def run_seed() -> dict:
 
     await seed_additional_fta_data()
 
-    await seed_config()
+    config_count = await seed_config()
 
     mock_cls_count = await seed_mock_classifications()
     print(f"[seed] Mock classifications: {mock_cls_count} seeded")
@@ -482,5 +486,6 @@ async def run_seed() -> dict:
         "tariff_rates":      "seeded",
         "fta_data":          "seeded",
         "mock_classifications": mock_cls_count,
+        "config":            config_count,
     }
 
