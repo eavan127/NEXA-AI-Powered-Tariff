@@ -506,11 +506,12 @@ async function runSingleB(shipmentId) {
     if (r.status === 'ok') {
       const d = r.data
       showToast(`✓ Module B — ${d?.best_fta} @ ${d?.fta_rate_pct}% · saved ${money(d?.duty_saving_usd)}`)
+      await reloadCurrentShipment(shipmentId)
+      await runSingleC(shipmentId)
     } else {
       showToast('Module B failed: ' + (r.detail||'unknown'), true)
+      await reloadCurrentShipment(shipmentId)
     }
-    await reloadCurrentShipment(shipmentId)
-    await runSingleC(shipmentId)
   } catch(e) { showToast('Module B error: ' + e.message, true) }
   finally {
     btns.forEach(b => { b.disabled = false; b.innerHTML = '<i class="ti ti-world"></i> Run Module B' })
@@ -636,7 +637,6 @@ async function doBulk() {
     const hasA = s.hs_classifications?.length > 0
     if (!hasA) await runSingleA(s.sap_shipment_id).catch(()=>{})
     await runSingleB(s.sap_shipment_id).catch(()=>{})
-    await runSingleC(s.sap_shipment_id).catch(()=>{})
   }
   showToast('✓ All pending processed')
   await loadShipments()
