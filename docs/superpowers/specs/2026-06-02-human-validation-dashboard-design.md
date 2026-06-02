@@ -24,10 +24,13 @@ Module A (HS Classification)
 - `js/verification.js` — page logic
 
 **Existing files modified:**
-- `js/api.js` — add `verifyShipment()`, `escalateShipment()`, `overrideHSCode()` API helpers
-- `index.html` / `shipments.html` — add "Validation" link in sidebar nav
-- `backend/api/routes.py` — add verify/escalate/override endpoints
+- `js/api.js` — add `overrideHSCode()`, `escalateShipment()` API helpers
+- `shipments.html` + `js/shipments.js` — remove Approve/Flag buttons; row click links to `verification.html?id={id}` instead of `index.html?id={id}`
+- All HTML pages — add "Validation" link in sidebar nav
+- `backend/api/routes.py` — add override-hs and escalate endpoints
 - `backend/database/schema.sql` — document `analyst_override_hs` usage (already exists)
+
+**`shipments.html` becomes monitoring-only:** Run Module A/B buttons remain (pipeline operations). Approve and Flag buttons are removed. The only way to approve a shipment is through `verification.html`. This enforces the "no bypass" rule.
 
 ---
 
@@ -208,6 +211,7 @@ verification.html loads
   → fetchShipments() → GET /api/shipments
   → builds queue from s.hs_classifications[0].module_a_status + s.status
   → renders left panel
+  → if ?id= query param present: auto-select that item and scroll it into view
 
 Analyst selects item
   → fetchShipmentDetail(id) → GET /api/shipments/{id}
@@ -218,6 +222,13 @@ Analyst takes action
   → on success: update queue item status, advance to next pending item
   → reload summary counts
 ```
+
+### Deep-link from `shipments.html`
+
+Row click in `shipments.html` navigates to `verification.html?id=SHIP001`.
+On load, `verification.js` reads `new URLSearchParams(window.location.search).get('id')`,
+finds that item in the queue, auto-selects it, and loads its detail in the right panel.
+This is the same deep-link pattern used in `app.js` (`index.html?id=SHIP001`).
 
 ---
 
