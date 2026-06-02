@@ -1,0 +1,123 @@
+<h2>Human Validation Dashboard — Layout</h2>
+<p class="subtitle">Three approaches for the analyst review workflow. Pick the one that fits best.</p>
+
+<div class="cards">
+
+  <!-- Option A -->
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="display:flex;gap:6px;height:180px;font-size:10px;font-family:monospace;background:#f8f9fa;border-radius:6px;overflow:hidden;border:1px solid #ddd">
+        <!-- Left queue -->
+        <div style="width:38%;background:#fff;border-right:1px solid #e5e7eb;padding:8px;overflow:hidden">
+          <div style="font-size:9px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Review Queue (8)</div>
+          <div style="background:#fef2f2;border-left:3px solid #ef4444;border-radius:3px;padding:4px 6px;margin-bottom:4px">
+            <div style="font-weight:700;color:#111;font-size:10px">SHIP004</div>
+            <div style="color:#6b7280;font-size:9px">78% · DDR5 Memory · Flagged</div>
+          </div>
+          <div style="background:#fffbeb;border-left:3px solid #f59e0b;border-radius:3px;padding:4px 6px;margin-bottom:4px">
+            <div style="font-weight:700;color:#111;font-size:10px">SHIP002</div>
+            <div style="color:#6b7280;font-size:9px">82% · Servo Motor</div>
+          </div>
+          <div style="background:#f0fdf4;border-left:3px solid #22c55e;border-radius:3px;padding:4px 6px;margin-bottom:4px;opacity:.5">
+            <div style="font-weight:700;color:#111;font-size:10px">SHIP001</div>
+            <div style="color:#6b7280;font-size:9px">94% · PCB Assembly ✓</div>
+          </div>
+          <div style="background:#f0fdf4;border-left:3px solid #22c55e;border-radius:3px;padding:4px 6px;margin-bottom:4px;opacity:.5">
+            <div style="font-weight:700;color:#111;font-size:10px">SHIP003</div>
+            <div style="color:#6b7280;font-size:9px">96% · Aluminium ✓</div>
+          </div>
+        </div>
+        <!-- Right detail -->
+        <div style="flex:1;padding:8px;overflow:hidden">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <div style="font-weight:700;font-size:10px;color:#111">SHIP004 — DDR5 Memory Module</div>
+            <div style="background:#fef2f2;color:#ef4444;font-size:8px;font-weight:700;padding:2px 6px;border-radius:9999px">FLAGGED</div>
+          </div>
+          <div style="font-size:9px;color:#374151;background:#f9fafb;border-radius:4px;padding:5px;margin-bottom:5px">
+            <div style="font-weight:600;margin-bottom:2px">AI Reasoning</div>
+            <div style="color:#6b7280">e2open: 8471.30 (laptops) → AI: 8542.31 (ICs). Confidence 78% — ambiguity flagged.</div>
+          </div>
+          <div style="display:flex;gap:3px;margin-top:6px">
+            <div style="flex:1;background:#dcfce7;color:#166534;font-size:8px;font-weight:700;text-align:center;padding:4px;border-radius:3px">✓ APPROVE</div>
+            <div style="flex:1;background:#dbeafe;color:#1d4ed8;font-size:8px;font-weight:700;text-align:center;padding:4px;border-radius:3px">✎ EDIT</div>
+            <div style="flex:1;background:#fef9c3;color:#854d0e;font-size:8px;font-weight:700;text-align:center;padding:4px;border-radius:3px">↑ ESCALATE</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A — Split Panel Queue</h3>
+      <p>Scrollable item queue on the left, full detail on the right. Click an item → detail updates instantly. Best for systematic one-by-one review. <strong>Recommended.</strong></p>
+    </div>
+  </div>
+
+  <!-- Option B -->
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="height:180px;font-size:10px;font-family:monospace;background:#f8f9fa;border-radius:6px;overflow:hidden;border:1px solid #ddd;padding:8px">
+        <div style="font-size:9px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Flagged Items — Needs Review</div>
+        <!-- Expanded card -->
+        <div style="background:#fff;border:1px solid #e5e7eb;border-radius:5px;margin-bottom:5px;overflow:hidden">
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 8px;border-bottom:1px solid #f0f0f0">
+            <div>
+              <span style="font-weight:700;font-size:10px">SHIP004</span>
+              <span style="color:#6b7280;font-size:9px;margin-left:6px">DDR5 Memory · 78% · Taiwan</span>
+            </div>
+            <span style="font-size:9px;color:#ef4444;font-weight:600">▲ EXPANDED</span>
+          </div>
+          <div style="padding:6px 8px;font-size:9px;color:#374151">
+            <div style="color:#6b7280;margin-bottom:4px">AI suggests 8542.31 over e2open's 8471.30. Analyst verification required.</div>
+            <div style="display:flex;gap:3px">
+              <div style="background:#dcfce7;color:#166534;font-size:8px;font-weight:700;padding:3px 8px;border-radius:3px">✓ APPROVE</div>
+              <div style="background:#dbeafe;color:#1d4ed8;font-size:8px;font-weight:700;padding:3px 8px;border-radius:3px">✎ EDIT</div>
+              <div style="background:#fef9c3;color:#854d0e;font-size:8px;font-weight:700;padding:3px 8px;border-radius:3px">↑ ESCALATE</div>
+            </div>
+          </div>
+        </div>
+        <!-- Collapsed card -->
+        <div style="background:#fff;border:1px solid #e5e7eb;border-radius:5px;padding:5px 8px;margin-bottom:5px">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div><span style="font-weight:700;font-size:10px">SHIP002</span><span style="color:#6b7280;font-size:9px;margin-left:6px">Servo Motor · 82% · China</span></div>
+            <span style="font-size:9px;color:#6b7280">▼ EXPAND</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B — Expandable Cards</h3>
+      <p>Each item is a collapsible card. Click to expand and take action inline. Good when reviewers work through items at their own pace, but requires more scrolling.</p>
+    </div>
+  </div>
+
+  <!-- Option C -->
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="height:180px;font-size:10px;font-family:monospace;background:#f8f9fa;border-radius:6px;overflow:hidden;border:1px solid #ddd;padding:8px">
+        <!-- Table -->
+        <div style="background:#fff;border:1px solid #e5e7eb;border-radius:5px;overflow:hidden;margin-bottom:6px">
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;background:#f9fafb;padding:4px 6px;font-size:8px;font-weight:600;color:#6b7280;text-transform:uppercase;border-bottom:1px solid #e5e7eb">
+            <span>Shipment</span><span>HS Code</span><span>Confidence</span><span>Status</span><span>Action</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;padding:4px 6px;font-size:9px;border-bottom:1px solid #f0f0f0;background:#fef2f2">
+            <span style="font-weight:600">SHIP004</span><span>8542.31</span><span style="color:#ef4444">78%</span><span style="color:#ef4444">Flagged</span><span style="color:#3b82f6;text-decoration:underline">Review →</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;padding:4px 6px;font-size:9px;border-bottom:1px solid #f0f0f0;background:#fffbeb">
+            <span style="font-weight:600">SHIP002</span><span>8501.52</span><span style="color:#f59e0b">82%</span><span style="color:#f59e0b">Pending</span><span style="color:#3b82f6;text-decoration:underline">Review →</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;padding:4px 6px;font-size:9px">
+            <span style="font-weight:600">SHIP001</span><span>8534.00</span><span style="color:#22c55e">94%</span><span style="color:#22c55e">Approved</span><span style="color:#6b7280">—</span>
+          </div>
+        </div>
+        <!-- Modal hint -->
+        <div style="background:#1f2937;color:#f9fafb;border-radius:5px;padding:5px 8px;font-size:9px;text-align:center;opacity:.85">
+          📋 Modal opens with full reasoning + action buttons
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C — Table + Modal</h3>
+      <p>Full-width table matching the existing <em>shipments.html</em> pattern. Click "Review →" to open a modal with full detail and actions. Consistent with current UX.</p>
+    </div>
+  </div>
+
+</div>

@@ -1,0 +1,191 @@
+<h2>Human Validation Dashboard — Full Layout</h2>
+<p class="subtitle">Does this layout cover everything you need? Click to select if it looks right.</p>
+
+<div class="cards">
+<div class="card" data-choice="approved" onclick="toggleSelect(this)">
+<div class="card-image" style="padding:0;overflow:hidden;height:360px">
+
+<!-- Full dashboard mockup -->
+<div style="display:flex;height:360px;font-family:Inter,sans-serif;font-size:11px;background:#f3f4f5">
+
+  <!-- LEFT: Queue panel -->
+  <div style="width:300px;min-width:300px;background:#fff;border-right:1px solid #e5e7eb;display:flex;flex-direction:column;overflow:hidden">
+
+    <!-- Queue header -->
+    <div style="padding:10px 12px 8px;border-bottom:1px solid #e5e7eb;background:#fff">
+      <div style="font-weight:700;font-size:12px;color:#111;margin-bottom:2px">Review Queue</div>
+      <div style="font-size:10px;color:#6b7280">2 of 5 reviewed · 3 remaining</div>
+      <!-- Progress bar -->
+      <div style="height:4px;background:#e5e7eb;border-radius:9999px;margin-top:6px;overflow:hidden">
+        <div style="height:100%;width:40%;background:#005596;border-radius:9999px"></div>
+      </div>
+    </div>
+
+    <!-- Regulatory alert -->
+    <div style="background:#fffbeb;border-bottom:2px solid #f59e0b;padding:6px 12px;display:flex;gap:6px;align-items:flex-start">
+      <span style="font-size:13px">⚠</span>
+      <div>
+        <div style="font-weight:600;font-size:10px;color:#92400e">Regulatory Alert</div>
+        <div style="font-size:9px;color:#78350f">CPTPP Year 8 reductions active — 3 items affected</div>
+      </div>
+    </div>
+
+    <!-- Filter tabs -->
+    <div style="display:flex;border-bottom:1px solid #e5e7eb;background:#f9fafb">
+      <div style="padding:5px 10px;font-size:9px;font-weight:600;color:#005596;border-bottom:2px solid #005596;cursor:pointer">All (5)</div>
+      <div style="padding:5px 10px;font-size:9px;color:#6b7280;cursor:pointer">Flagged (2)</div>
+      <div style="padding:5px 10px;font-size:9px;color:#6b7280;cursor:pointer">Done (2)</div>
+    </div>
+
+    <!-- Queue items -->
+    <div style="flex:1;overflow-y:auto">
+
+      <!-- Item: selected + flagged -->
+      <div style="padding:8px 12px;border-left:3px solid #ef4444;background:#fef7f7;border-bottom:1px solid #f0f0f0">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div style="font-weight:700;color:#111">SHIP004</div>
+          <div style="background:#fef2f2;color:#ef4444;font-size:8px;font-weight:700;padding:1px 5px;border-radius:9999px">FLAGGED</div>
+        </div>
+        <div style="color:#6b7280;font-size:9px;margin-top:1px">DDR5 Memory Module</div>
+        <div style="display:flex;align-items:center;gap:4px;margin-top:3px">
+          <div style="height:4px;flex:1;background:#fca5a5;border-radius:9999px;overflow:hidden"><div style="height:100%;width:78%;background:#ef4444"></div></div>
+          <span style="color:#ef4444;font-weight:600;font-size:9px">78%</span>
+        </div>
+      </div>
+
+      <!-- Item: medium confidence -->
+      <div style="padding:8px 12px;border-left:3px solid #f59e0b;background:#fff;border-bottom:1px solid #f0f0f0;cursor:pointer">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div style="font-weight:700;color:#111">SHIP002</div>
+          <div style="background:#fffbeb;color:#d97706;font-size:8px;font-weight:700;padding:1px 5px;border-radius:9999px">PENDING</div>
+        </div>
+        <div style="color:#6b7280;font-size:9px;margin-top:1px">Industrial Servo Motor</div>
+        <div style="display:flex;align-items:center;gap:4px;margin-top:3px">
+          <div style="height:4px;flex:1;background:#fde68a;border-radius:9999px;overflow:hidden"><div style="height:100%;width:82%;background:#f59e0b"></div></div>
+          <span style="color:#f59e0b;font-weight:600;font-size:9px">82%</span>
+        </div>
+      </div>
+
+      <!-- Item: approved -->
+      <div style="padding:8px 12px;border-left:3px solid #22c55e;background:#f0fdf4;border-bottom:1px solid #f0f0f0;opacity:.7;cursor:pointer">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div style="font-weight:700;color:#111">SHIP001</div>
+          <div style="background:#dcfce7;color:#166534;font-size:8px;font-weight:700;padding:1px 5px;border-radius:9999px">✓ APPROVED</div>
+        </div>
+        <div style="color:#6b7280;font-size:9px;margin-top:1px">PCB Assembly</div>
+        <div style="display:flex;align-items:center;gap:4px;margin-top:3px">
+          <div style="height:4px;flex:1;background:#bbf7d0;border-radius:9999px;overflow:hidden"><div style="height:100%;width:94%;background:#22c55e"></div></div>
+          <span style="color:#22c55e;font-weight:600;font-size:9px">94%</span>
+        </div>
+      </div>
+
+      <!-- Item: pending high conf -->
+      <div style="padding:8px 12px;border-left:3px solid #3b82f6;background:#fff;border-bottom:1px solid #f0f0f0;cursor:pointer">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div style="font-weight:700;color:#111">SHIP003</div>
+          <div style="background:#eff6ff;color:#1d4ed8;font-size:8px;font-weight:700;padding:1px 5px;border-radius:9999px">PENDING</div>
+        </div>
+        <div style="color:#6b7280;font-size:9px;margin-top:1px">Aluminium Heatsink</div>
+        <div style="display:flex;align-items:center;gap:4px;margin-top:3px">
+          <div style="height:4px;flex:1;background:#bfdbfe;border-radius:9999px;overflow:hidden"><div style="height:100%;width:96%;background:#3b82f6"></div></div>
+          <span style="color:#3b82f6;font-weight:600;font-size:9px">96%</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Bulk approve -->
+    <div style="padding:8px 12px;border-top:1px solid #e5e7eb;background:#f9fafb">
+      <div style="background:#005596;color:#fff;text-align:center;padding:5px;border-radius:5px;font-size:9px;font-weight:700;cursor:pointer">
+        ⚡ Bulk Approve ≥95% (1 item)
+      </div>
+      <div style="font-size:8px;color:#9ca3af;text-align:center;margin-top:3px">Each approval logged individually</div>
+    </div>
+  </div>
+
+  <!-- RIGHT: Detail panel -->
+  <div style="flex:1;display:flex;flex-direction:column;overflow:hidden">
+
+    <!-- Detail header -->
+    <div style="padding:10px 16px;border-bottom:1px solid #e5e7eb;background:#fff;display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div style="font-weight:700;font-size:13px;color:#111">SHIP004 — DDR5 Memory Module DDR5</div>
+        <div style="font-size:10px;color:#6b7280;margin-top:1px">Taiwan · USD 18,000 · HS dispute: e2open vs AI</div>
+      </div>
+      <div style="background:#fef2f2;color:#ef4444;font-size:9px;font-weight:700;padding:3px 8px;border-radius:9999px">FLAGGED</div>
+    </div>
+
+    <!-- Detail body: scrollable -->
+    <div style="flex:1;overflow-y:auto;padding:12px 16px;display:flex;flex-direction:column;gap:10px">
+
+      <!-- Module A card -->
+      <div style="background:#fff;border:1px solid #e5e7eb;border-radius:6px;overflow:hidden">
+        <div style="padding:6px 10px;background:#f9fafb;border-bottom:1px solid #e5e7eb;font-weight:600;font-size:10px;color:#374151">Module A — HS Classification</div>
+        <div style="padding:8px 10px">
+          <div style="display:flex;gap:12px;margin-bottom:6px">
+            <div style="flex:1">
+              <div style="font-size:8px;color:#9ca3af;text-transform:uppercase;letter-spacing:.05em">e2open (original)</div>
+              <div style="font-family:monospace;font-size:12px;font-weight:700;color:#f59e0b">8471.30</div>
+              <div style="font-size:9px;color:#6b7280">Laptops</div>
+            </div>
+            <div style="color:#9ca3af;font-size:14px;align-self:center">→</div>
+            <div style="flex:1">
+              <div style="font-size:8px;color:#9ca3af;text-transform:uppercase;letter-spacing:.05em">AI override</div>
+              <div style="font-family:monospace;font-size:12px;font-weight:700;color:#005596">8542.31</div>
+              <div style="font-size:9px;color:#6b7280">Electronic ICs</div>
+            </div>
+            <div style="flex:1;text-align:right">
+              <div style="font-size:8px;color:#9ca3af;text-transform:uppercase;letter-spacing:.05em">Confidence</div>
+              <div style="font-size:16px;font-weight:700;color:#ef4444">78%</div>
+            </div>
+          </div>
+          <div style="background:#fef9f0;border-left:3px solid #f59e0b;padding:6px 8px;font-size:9px;color:#78350f;border-radius:0 4px 4px 0">
+            <strong>AI Reasoning:</strong> e2open code 8471.30 (portable computers) rejected — product is a DDR5 memory module, not a portable computer. AI suggests 8542.31 (Electronic ICs). Confidence 78% — ambiguity between 8542.31 and 8473.30.
+          </div>
+        </div>
+      </div>
+
+      <!-- FTA + Landed Cost side by side -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div style="background:#fff;border:1px solid #e5e7eb;border-radius:6px;overflow:hidden">
+          <div style="padding:6px 10px;background:#f9fafb;border-bottom:1px solid #e5e7eb;font-weight:600;font-size:10px;color:#374151">Module B — FTA Match</div>
+          <div style="padding:8px 10px;font-size:9px">
+            <div style="color:#6b7280;margin-bottom:3px">Best rate: <strong style="color:#ef4444">MFN 5.0%</strong> (no FTA)</div>
+            <div style="color:#6b7280;margin-bottom:3px">Origin: Taiwan — not in any MY FTA</div>
+            <div style="color:#ef4444;font-weight:600">No duty saving available</div>
+          </div>
+        </div>
+        <div style="background:#fff;border:1px solid #e5e7eb;border-radius:6px;overflow:hidden">
+          <div style="padding:6px 10px;background:#f9fafb;border-bottom:1px solid #e5e7eb;font-weight:600;font-size:10px;color:#374151">Module C — Landed Cost</div>
+          <div style="padding:8px 10px;font-size:9px">
+            <div style="color:#6b7280;margin-bottom:2px">CIF: <strong style="color:#111;font-family:monospace">MYR 85,260</strong></div>
+            <div style="color:#6b7280;margin-bottom:2px">Duties: <strong style="color:#111;font-family:monospace">MYR 0</strong> (LMW)</div>
+            <div style="color:#6b7280">Total: <strong style="color:#111;font-family:monospace">USD 18,621</strong></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Action bar: sticky bottom -->
+    <div style="padding:10px 16px;border-top:2px solid #e5e7eb;background:#fff;display:flex;gap:8px;align-items:center">
+      <div style="flex:1;background:#dcfce7;color:#166534;font-weight:700;font-size:11px;text-align:center;padding:8px;border-radius:6px;cursor:pointer;border:1px solid #bbf7d0">
+        ✓ Approve
+      </div>
+      <div style="flex:1;background:#dbeafe;color:#1e40af;font-weight:700;font-size:11px;text-align:center;padding:8px;border-radius:6px;cursor:pointer;border:1px solid #bfdbfe">
+        ✎ Edit HS Code
+      </div>
+      <div style="flex:1;background:#fef9c3;color:#854d0e;font-weight:700;font-size:11px;text-align:center;padding:8px;border-radius:6px;cursor:pointer;border:1px solid #fde68a">
+        ↑ Escalate
+      </div>
+    </div>
+
+  </div>
+</div>
+</div>
+<div class="card-body">
+  <h3>✓ This is the dashboard</h3>
+  <p>Left: queue with progress bar, regulatory alert, confidence bars, bulk approve. Right: HS dispute, AI reasoning, FTA + landed cost panels, sticky Approve / Edit / Escalate actions. Click if this looks right.</p>
+</div>
+</div>
+</div>
