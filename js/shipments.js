@@ -6,8 +6,22 @@ let SHIPMENTS    = []
 let activeFilter = 'all'
 let searchQuery  = ''
 
-/* ── Boot ────────────────────────────────────────────────────── */
+/* ── Boot + live polling ─────────────────────────────────────── */
 loadAll()
+setInterval(liveRefresh, 5000)  // refresh every 5s
+
+async function liveRefresh() {
+  try {
+    const [ships, summary] = await Promise.all([fetchShipments(), fetchSummary()])
+    SHIPMENTS = ships
+    renderKPIs(summary)
+    renderPipeline()
+    renderTable()
+    // Flash the live dot to signal an update landed
+    const dot = document.querySelector('.live-dot')
+    if (dot) { dot.style.opacity = '1'; setTimeout(() => dot.style.opacity = '', 300) }
+  } catch (e) { /* silent — user already sees offline state from initial load */ }
+}
 
 async function loadAll() {
   try {
