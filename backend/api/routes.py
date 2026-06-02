@@ -147,7 +147,7 @@ async def approve_shipment(shipment_id: str, request: Request):
             .eq("sap_shipment_id", shipment_id).execute()
         supabase.table("audit_trail").insert({
             "shipment_id": ship.data["id"],
-            "action": f"{shipment_id} approved by analyst Sarah Lim via NEXA UI"
+            "event_type": "analyst_decision", "analyst_note": f"{shipment_id} approved by analyst Sarah Lim via NEXA UI"
         }).execute()
         return {"status": "ok", "message": f"{shipment_id} approved"}
     except HTTPException:
@@ -168,7 +168,7 @@ async def flag_shipment(shipment_id: str, request: Request):
             .eq("sap_shipment_id", shipment_id).execute()
         supabase.table("audit_trail").insert({
             "shipment_id": ship.data["id"],
-            "action": f"{shipment_id} flagged for analyst review via NEXA UI"
+            "event_type": "analyst_decision", "analyst_note": f"{shipment_id} flagged for analyst review via NEXA UI"
         }).execute()
         return {"status": "ok", "message": f"{shipment_id} flagged"}
     except HTTPException:
@@ -278,7 +278,7 @@ async def override_hs_code(shipment_id: str, request: Request):
 
         supabase.table("audit_trail").insert({
             "shipment_id": ship.data["id"],
-            "action": f"{shipment_id} HS code overridden to {hs_code} by analyst. Reason: {reason}"
+            "event_type": "analyst_override", "analyst_note": f"{shipment_id} HS code overridden to {hs_code} by analyst. Reason: {reason}"
         }).execute()
 
         return {"status": "ok", "message": f"HS overridden to {hs_code}"}
@@ -310,7 +310,7 @@ async def escalate_shipment(shipment_id: str, request: Request):
 
         supabase.table("audit_trail").insert({
             "shipment_id": ship.data["id"],
-            "action": f"{shipment_id} escalated to {assignee}. Notes: {notes}"
+            "event_type": "analyst_escalation", "analyst_note": f"{shipment_id} escalated to {assignee}. Notes: {notes}"
         }).execute()
 
         return {"status": "ok", "message": f"Escalated to {assignee}"}

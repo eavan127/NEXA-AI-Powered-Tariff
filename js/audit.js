@@ -114,7 +114,7 @@ function renderTimeline() {
 }
 
 function renderEntry(e) {
-  const action = (e.action || e.note || 'System event').toLowerCase()
+  const action = (e.analyst_note || e.event_type || 'System event').toLowerCase()
   const isApprove = action.includes('approved')
   const isFlag    = action.includes('flagged')
   const dotClass  = isApprove ? '' : isFlag ? 'flag' : 'info'
@@ -131,7 +131,7 @@ function renderEntry(e) {
     </span>
     <span class="tl-msg">
       <i class="ti ${icon}" style="font-size:13px;color:${iconColor};margin-right:5px"></i>
-      ${e.action || e.note || 'System event'}
+      ${e.analyst_note || e.event_type || 'System event'}
     </span>
   </div>`
 }
@@ -144,7 +144,7 @@ function exportAuditCSV() {
   const headers = ['Shipment ID', 'Action', 'Timestamp']
   const rows    = items.map(e => [
     e.sap_id,
-    `"${(e.action || e.note || '').replace(/"/g, '""')}"`,
+    `"${(e.analyst_note || e.event_type || '').replace(/"/g, '""')}"`,
     e.created_at || ''
   ].join(','))
 
