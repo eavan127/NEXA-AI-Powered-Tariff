@@ -136,6 +136,22 @@ async function selectItem(id) {
   try {
     const r = await apiFetch(`/api/shipments/${id}`)
     renderDetailPanel(r.data)
+
+    // Auto-run Module C if A and B are done but C hasn't run yet
+    const hasA = r.data.hs_classifications?.length > 0
+    const hasB = r.data.fta_results?.length > 0
+    const hasC = r.data.landed_costs?.length > 0
+    if (hasA && hasB && !hasC) {
+      showToast(`⏳ Auto-running Module C for ${id}…`)
+      try {
+        await runModuleC(id)
+        const refreshed = await apiFetch(`/api/shipments/${id}`)
+        renderDetailPanel(refreshed.data)
+        showToast(`✓ Module C complete for ${id}`)
+      } catch (cErr) {
+        showToast(`Module C auto-run failed: ${cErr.message}`, true)
+      }
+    }
   } catch (e) {
     setHtml('detailBody', `
       <div class="detail-empty">
