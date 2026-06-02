@@ -163,6 +163,16 @@
           </button>
           <button class="tab" onclick="setFilter('pending',this)">Pending</button>
           <div class="flex1"></div>
+          <div style="position:relative;display:flex;align-items:center">
+            <i class="ti ti-search" style="position:absolute;left:8px;font-size:13px;color:var(--muted-soft);pointer-events:none"></i>
+            <input id="shipSearch" type="text" placeholder="Search ID, product, HS…"
+              oninput="onSearch()"
+              style="height:30px;padding:0 10px 0 28px;border:1px solid var(--hairline);border-radius:var(--r-md);
+                     font-size:12px;font-family:var(--sans);background:var(--canvas);color:var(--ink);width:210px;
+                     outline:none;"
+              onfocus="this.style.borderColor='var(--primary)'"
+              onblur="this.style.borderColor='var(--hairline)'">
+          </div>
           <button class="bulk-btn" onclick="doBulk()">
             <i class="ti ti-player-play" style="font-size:12px"></i> Run All Pending
           </button>

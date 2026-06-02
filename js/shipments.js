@@ -4,6 +4,7 @@
 
 let SHIPMENTS    = []
 let activeFilter = 'all'
+let searchQuery  = ''
 
 /* ── Boot ────────────────────────────────────────────────────── */
 loadAll()
@@ -57,18 +58,34 @@ function renderPipeline() {
   setText('tableCount', getFiltered().length + ' shown')
 }
 
-/* ── Filter ──────────────────────────────────────────────────── */
+/* ── Filter + Search ─────────────────────────────────────────── */
 function getFiltered() {
-  if (activeFilter === 'flagged')  return SHIPMENTS.filter(s => s.status === 'flagged')
-  if (activeFilter === 'approved') return SHIPMENTS.filter(s => s.status === 'approved')
-  if (activeFilter === 'pending')  return SHIPMENTS.filter(s => s.status === 'pending')
-  return SHIPMENTS
+  let items = SHIPMENTS
+  if (activeFilter === 'flagged')  items = items.filter(s => s.status === 'flagged')
+  if (activeFilter === 'approved') items = items.filter(s => s.status === 'approved')
+  if (activeFilter === 'pending')  items = items.filter(s => s.status === 'pending')
+  if (searchQuery) {
+    const q = searchQuery.toLowerCase()
+    items = items.filter(s =>
+      s.sap_shipment_id?.toLowerCase().includes(q) ||
+      s.product_description?.toLowerCase().includes(q) ||
+      s.origin_country?.toLowerCase().includes(q) ||
+      s.hs_classifications?.[0]?.final_hs_code?.toLowerCase().includes(q)
+    )
+  }
+  return items
 }
 
 function setFilter(f, btn) {
   activeFilter = f
   document.querySelectorAll('.filter-bar .tab').forEach(b => b.classList.remove('active'))
   btn.classList.add('active')
+  renderTable()
+  setText('tableCount', getFiltered().length + ' shown')
+}
+
+function onSearch() {
+  searchQuery = ($('shipSearch')?.value || '').trim()
   renderTable()
   setText('tableCount', getFiltered().length + ' shown')
 }
