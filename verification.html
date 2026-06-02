@@ -107,6 +107,8 @@
   flex-direction: column;
   gap: var(--sp-md);
 }
+/* Cards must not shrink — det-card has overflow:hidden which clips content when flex compresses it */
+.detail-body .det-card { flex-shrink: 0; }
 .detail-empty {
   flex: 1;
   display: flex;

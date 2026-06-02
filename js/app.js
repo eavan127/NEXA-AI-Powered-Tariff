@@ -443,7 +443,7 @@ function renderAuditTrail(shipId, trail) {
     <div class="audit-row">
       <span class="audit-time">${new Date(e.created_at).toLocaleTimeString()}</span>
       <i class="ti ti-circle-check audit-ico" style="color:var(--teal)"></i>
-      <span class="audit-msg">${e.action || e.note || JSON.stringify(e)}</span>
+      <span class="audit-msg">${e.analyst_note || e.event_type || JSON.stringify(e)}</span>
     </div>`).join(''))
 }
 

@@ -72,7 +72,7 @@
       <div class="topbar-crumb" id="topbarCrumb">
         NEXA <i class="ti ti-chevron-right"></i> <strong>All Shipments</strong>
       </div>
-      <div class="live-row"><div class="live-dot"></div> Live · Supabase</div>
+      <div class="live-row"><div class="live-dot"></div> Live · auto-refresh 5s</div>
       <button class="btn" onclick="loadAll()"><i class="ti ti-refresh"></i> Refresh</button>
       <button class="btn btn-primary" onclick="openModal('batchModal')"><i class="ti ti-checks"></i> Submit Batch</button>
     </div>
@@ -137,10 +137,10 @@
           </div>
           <div style="text-align:center;color:var(--muted-soft);font-size:18px">→</div>
           <div style="text-align:center">
-            <div style="font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:#d97706;margin-bottom:6px">Module C · Landed Cost · Teammate C ⬅ Build This</div>
-            <div style="font-size:26px;font-weight:600;color:#d97706;font-family:var(--serif)" id="pipeC">0</div>
+            <div style="font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted-soft);margin-bottom:6px">Module C · Landed Cost ✓</div>
+            <div style="font-size:26px;font-weight:600;color:var(--teal);font-family:var(--serif)" id="pipeC">—</div>
             <div style="font-size:11px;color:var(--muted-soft);margin-top:2px">costs calculated</div>
-            <div class="progress-track" style="margin-top:10px"><div class="progress-fill" id="pipeCBar" style="width:0%;background:#d97706"></div></div>
+            <div class="progress-track" style="margin-top:10px"><div class="progress-fill" id="pipeCBar" style="width:0%;background:var(--teal)"></div></div>
           </div>
         </div>
       </div>
@@ -163,6 +163,16 @@
           </button>
           <button class="tab" onclick="setFilter('pending',this)">Pending</button>
           <div class="flex1"></div>
+          <div style="position:relative;display:flex;align-items:center">
+            <i class="ti ti-search" style="position:absolute;left:8px;font-size:13px;color:var(--muted-soft);pointer-events:none"></i>
+            <input id="shipSearch" type="text" placeholder="Search ID, product, HS…"
+              oninput="onSearch()"
+              style="height:30px;padding:0 10px 0 28px;border:1px solid var(--hairline);border-radius:var(--r-md);
+                     font-size:12px;font-family:var(--sans);background:var(--canvas);color:var(--ink);width:210px;
+                     outline:none;"
+              onfocus="this.style.borderColor='var(--primary)'"
+              onblur="this.style.borderColor='var(--hairline)'">
+          </div>
           <button class="bulk-btn" onclick="doBulk()">
             <i class="ti ti-player-play" style="font-size:12px"></i> Run All Pending
           </button>
