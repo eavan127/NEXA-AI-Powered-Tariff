@@ -398,28 +398,104 @@ function renderModuleCCard(lc) {
   </div>`
 
   const breakdown    = lc.cost_breakdown || []
-  const totalCifMyr  = breakdown.reduce((s, r) => s + (r.apportionment_metrics?.calculated_cif_myr      || 0), 0)
-  const totalDutyMyr = breakdown.reduce((s, r) => s + (r.regulatory_charges_myr?.customs_duty_charged   || 0), 0)
-  const totalTaxMyr  = breakdown.reduce((s, r) => s + (r.regulatory_charges_myr?.sales_tax_charged      || 0), 0)
+  const fmt          = n => Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  const fmtPct       = n => Number(n || 0).toFixed(1)
+
+  const totalCifMyr  = breakdown.reduce((s, r) => s + (r.apportionment_metrics?.calculated_cif_myr        || 0), 0)
+  const totalDutyMyr = breakdown.reduce((s, r) => s + (r.regulatory_charges_myr?.customs_duty_charged     || 0), 0)
+  const totalAddMyr  = breakdown.reduce((s, r) => s + (r.regulatory_charges_myr?.anti_dumping_duty_charged|| 0), 0)
+  const totalTaxMyr  = breakdown.reduce((s, r) => s + (r.regulatory_charges_myr?.sales_tax_charged        || 0), 0)
   const fxEst        = totalCifMyr > 0 && lc.cif_value_usd > 0 ? totalCifMyr / lc.cif_value_usd : 4.67
   const procMyr      = Math.round((lc.other_fees_usd || 0) * fxEst * 100) / 100
   const isLmw        = breakdown[0]?.flags_applied?.is_lmw_facility ?? true
-  const fmt          = n => n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  const ftaRate      = breakdown[0]?.regulatory_charges_myr?.applied_fta_rate_pct ?? (lc.duty_rate_applied_pct || 0)
+  const totalLandedMyr = totalCifMyr + totalDutyMyr + totalAddMyr + totalTaxMyr + procMyr
+
+  /* ── Per-SKU rows ── */
+  const skuRows = breakdown.map(r => {
+    const am  = r.apportionment_metrics  || {}
+    const rc  = r.regulatory_charges_myr || {}
+    const hasAdd = (rc.anti_dumping_duty_charged || 0) > 0
+    const skuTotal = (am.calculated_cif_myr || 0)
+                   + (rc.customs_duty_charged || 0)
+                   + (rc.anti_dumping_duty_charged || 0)
+                   + (rc.sales_tax_charged || 0)
+    return `
+    <div style="padding:10px 0;border-bottom:1px solid var(--hairline-soft)">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
+        <div>
+          <span style="font-size:11px;font-weight:700;font-family:var(--mono);color:var(--primary)">${r.sku_id || '—'}</span>
+          ${r.description ? `<span style="font-size:11px;color:var(--muted);margin-left:6px">${r.description}</span>` : ''}
+        </div>
+        <span style="font-size:12px;font-weight:600;font-family:var(--mono);color:var(--ink)">MYR ${fmt(skuTotal)}</span>
+      </div>
+      <div style="padding-left:12px;display:grid;grid-template-columns:1fr auto;gap:2px 8px;font-size:11.5px">
+        <span style="color:var(--muted)">Line value</span>
+        <span style="font-family:var(--mono);text-align:right;color:var(--body)">USD ${fmt(am.line_total_value_usd)}</span>
+        <span style="color:var(--muted)">+ Freight allocated</span>
+        <span style="font-family:var(--mono);text-align:right;color:var(--body)">USD ${fmt(am.allocated_freight_usd)}</span>
+        <span style="color:var(--muted)">+ Insurance allocated</span>
+        <span style="font-family:var(--mono);text-align:right;color:var(--body)">USD ${fmt(am.allocated_insurance_usd)}</span>
+        <span style="color:var(--muted);font-weight:500">= CIF @ ${fmt(fxEst)} MYR/USD</span>
+        <span style="font-family:var(--mono);text-align:right;font-weight:600;color:var(--ink)">MYR ${fmt(am.calculated_cif_myr)}</span>
+        ${isLmw
+          ? `<span style="color:var(--teal);grid-column:1/-1;margin-top:2px;font-size:11px">✓ LMW facility — duty &amp; SST exempt</span>`
+          : `<span style="color:var(--muted)">Customs Duty (${fmtPct(rc.applied_fta_rate_pct)}%)</span>
+             <span style="font-family:var(--mono);text-align:right;color:${(rc.customs_duty_charged || 0) === 0 ? 'var(--teal)' : 'var(--body)'}">MYR ${fmt(rc.customs_duty_charged)}</span>
+             ${hasAdd ? `<span style="color:var(--muted)">Anti-dumping Duty</span>
+             <span style="font-family:var(--mono);text-align:right;color:#dc2626">MYR ${fmt(rc.anti_dumping_duty_charged)}</span>` : ''}
+             <span style="color:var(--muted)">Sales Tax (SST 10%)</span>
+             <span style="font-family:var(--mono);text-align:right;color:var(--body)">MYR ${fmt(rc.sales_tax_charged)}</span>`
+        }
+      </div>
+    </div>`
+  }).join('')
+
+  /* ── Shipment-total summary ── */
+  const summaryRows = `
+    <div class="cost-ln"><span class="lbl">Total CIF</span><span class="val">MYR ${fmt(totalCifMyr)}</span></div>
+    ${!isLmw ? `<div class="cost-ln"><span class="lbl">Customs Duty (FTA ${fmtPct(ftaRate)}%)</span><span class="val" style="color:${totalDutyMyr === 0 ? 'var(--teal)' : 'var(--ink)'}">MYR ${fmt(totalDutyMyr)}</span></div>` : ''}
+    ${totalAddMyr > 0 ? `<div class="cost-ln"><span class="lbl">Anti-dumping Duty</span><span class="val" style="color:#dc2626">MYR ${fmt(totalAddMyr)}</span></div>` : ''}
+    ${!isLmw ? `<div class="cost-ln"><span class="lbl">Sales Tax (SST 10%)</span><span class="val" style="color:${totalTaxMyr === 0 ? 'var(--teal)' : 'var(--ink)'}">MYR ${fmt(totalTaxMyr)}</span></div>` : ''}
+    ${isLmw ? `<div class="cost-ln"><span class="lbl" style="color:var(--teal)">Duty &amp; SST</span><span class="val" style="color:var(--teal)">MYR 0.00 (LMW exempt)</span></div>` : ''}
+    <div class="cost-ln"><span class="lbl">Processing &amp; Clearance Fees</span><span class="val">MYR ${fmt(procMyr)}</span></div>
+    <div class="cost-total">
+      <span>Total Landed Cost</span>
+      <div style="text-align:right">
+        <div class="val">MYR ${fmt(totalLandedMyr)}</div>
+        <div style="font-size:11px;color:var(--muted);font-weight:400;font-family:var(--mono);margin-top:1px">≈ USD ${fmt(lc.total_landed_cost_usd)}</div>
+      </div>
+    </div>`
+
+  /* ── FTA vs MFN comparison ── */
+  const saving = lc.fta_saving_usd || 0
+  const compPanel = saving > 0 ? `
+    <div style="margin-top:12px;padding:10px 12px;background:rgba(93,184,166,.06);border-radius:var(--r-sm);border:1px solid rgba(93,184,166,.2)">
+      <div style="font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.05em;margin-bottom:8px">FTA vs MFN COMPARISON</div>
+      <div class="cost-ln" style="padding:3px 0"><span class="lbl" style="font-size:12px">Without FTA (MFN rate)</span><span class="val" style="font-size:12px">USD ${fmt(lc.mfn_scenario_cost_usd)}</span></div>
+      <div class="cost-ln" style="padding:3px 0"><span class="lbl" style="font-size:12px">With FTA (${fmtPct(ftaRate)}%)</span><span class="val" style="font-size:12px">USD ${fmt(lc.total_landed_cost_usd)}</span></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding-top:8px;margin-top:6px;border-top:1px solid rgba(93,184,166,.25)">
+        <span style="font-size:12px;font-weight:600;color:var(--teal)">↓ FTA savings</span>
+        <span style="font-size:14px;font-weight:700;font-family:var(--mono);color:var(--teal)">USD ${fmt(saving)}</span>
+      </div>
+    </div>` : ''
 
   return `
   <div class="det-card">
     <div class="det-head">
       <i class="ti ti-receipt" style="color:var(--amber);font-size:15px"></i>
       <span class="det-title">Module C — Landed Cost</span>
-      ${isLmw ? `<span style="font-size:10px;font-weight:600;color:var(--teal)">✓ LMW Exempt</span>` : ''}
+      <span style="font-size:10px;font-weight:600;color:var(--muted);font-family:var(--mono)">FX ${fmt(fxEst)} MYR/USD</span>
+      ${isLmw ? `<span style="font-size:10px;font-weight:600;color:var(--teal)">✓ LMW</span>` : ''}
     </div>
     <div class="det-body">
-      <div class="cost-ln"><span class="lbl">Total CIF</span><span class="val" style="font-family:var(--mono)">MYR ${fmt(totalCifMyr)}</span></div>
-      <div class="cost-ln"><span class="lbl">Customs Duty</span><span class="val" style="color:${totalDutyMyr === 0 ? 'var(--teal)' : 'var(--ink)'}">MYR ${fmt(totalDutyMyr)}</span></div>
-      <div class="cost-ln"><span class="lbl">Sales Tax (10%)</span><span class="val" style="color:${totalTaxMyr === 0 ? 'var(--teal)' : 'var(--ink)'}">MYR ${fmt(totalTaxMyr)}</span></div>
-      <div class="cost-ln"><span class="lbl">Processing Fee</span><span class="val" style="font-family:var(--mono)">MYR ${fmt(procMyr)}</span></div>
-      <div class="cost-total"><span>Total Landed Cost</span><span class="val">USD ${fmt(lc.total_landed_cost_usd || 0)}</span></div>
-      ${(lc.fta_saving_usd || 0) > 0 ? `<div style="margin-top:8px;font-size:11px;color:var(--teal);font-weight:600;text-align:center">↓ FTA saves ${money(lc.fta_saving_usd)} vs MFN</div>` : ''}
+      ${breakdown.length > 0 ? `
+        <div style="font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.05em;margin-bottom:2px">PER-SKU BREAKDOWN</div>
+        ${skuRows}
+        <div style="font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.05em;margin-top:14px;margin-bottom:4px">SHIPMENT TOTAL</div>
+      ` : ''}
+      ${summaryRows}
+      ${compPanel}
     </div>
   </div>`
 }

@@ -153,8 +153,11 @@ async def calculate_landed_cost(shipment_id: str, supabase: Client) -> dict:
         total_landed_myr = round(total_cif_myr + total_duties_myr + processing_fee, 4)
         total_landed_usd = round(total_landed_myr / fx, 4)
 
-        # MFN scenario (for savings comparison; LMW → only processing fee)
-        mfn_duties_myr   = round(sum(s["_sku_cif_myr"] * (mfn_rate / 100) for s in sku_results), 4)
+        # MFN scenario (for savings comparison; LMW → duties and SST both exempt)
+        mfn_duties_myr   = (
+            round(sum(s["_sku_cif_myr"] * (mfn_rate / 100) for s in sku_results), 4)
+            if not lmw else 0.0
+        )
         mfn_sales_tax    = round(0.10 * (total_cif_myr + mfn_duties_myr), 4) if not lmw else 0.0
         mfn_scenario_usd = round(
             (total_cif_myr + mfn_duties_myr + mfn_sales_tax + processing_fee) / fx, 4
