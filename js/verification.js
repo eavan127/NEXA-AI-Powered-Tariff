@@ -197,3 +197,186 @@ async function doBulkApprove() {
 }
 
 init()
+
+/* ── Detail panel ────────────────────────────────────────────────────────────────────── */
+function renderDetailPanel(s) {
+  const cls = s.hs_classifications?.[0] || null
+  const fta = s.fta_results?.[0]        || null
+  const lc  = s.landed_costs?.[0]       || null
+  const cif = (s.shipment_value_usd || 0) + (s.freight_cost_usd || 0) + (s.insurance_cost_usd || 0)
+
+  // Header
+  const statusCol = statusColor(s.status)
+  setText('detailTitle', `${s.sap_shipment_id} — ${s.product_description}`)
+  setText('detailMeta',  `${s.origin_country} → Malaysia · USD ${cif.toLocaleString()} CIF`)
+  const pill = $('detailStatusPill')
+  if (pill) {
+    pill.textContent = s.status.toUpperCase()
+    pill.style.cssText = `background:${statusCol}18;color:${statusCol};border:1px solid ${statusCol}40`
+  }
+  $('detailHeader').style.display = ''
+  $('actionBar').style.display    = ''
+
+  // Disable actions if already reviewed
+  const reviewed = s.status === 'approved' || s.status === 'flagged'
+  ;['btnApprove','btnEdit','btnEscalate'].forEach(id => {
+    const b = $(id); if (b) b.disabled = reviewed
+  })
+
+  // Body cards
+  setHtml('detailBody',
+    renderModuleACard(cls) +
+    renderModuleBCard(fta, cif) +
+    renderModuleCCard(lc) +
+    '<div id="inlineFormContainer"></div>'
+  )
+}
+
+/* Module A card */
+function renderModuleACard(cls) {
+  if (!cls) return `
+  <div class="det-card">
+    <div class="det-head"><i class="ti ti-brain" style="color:var(--primary);font-size:15px"></i>
+      <span class="det-title">Module A — HS Classification</span></div>
+    <div class="det-body" style="color:var(--muted-soft);font-size:12px;text-align:center;padding:20px 0">
+      Module A has not run yet. Go to <a href="shipments.html" style="color:var(--primary)">All Shipments</a> to run it.
+    </div>
+  </div>`
+
+  const conf       = cls.confidence_score || 0
+  const barColor   = confColor(conf)
+  const agrees     = cls.e2open_hs_code === cls.ai_hs_code
+  const overridden = !!cls.analyst_override_hs
+  const statusText = overridden     ? 'Analyst Override'
+                   : conf >= 85    ? '✓ Auto Passed'    : '⚠ Review Required'
+  const statusCol  = overridden     ? 'var(--primary)'
+                   : conf >= 85    ? 'var(--teal)'      : 'var(--amber)'
+
+  return `
+  <div class="det-card">
+    <div class="det-head">
+      <i class="ti ti-brain" style="color:var(--primary);font-size:15px"></i>
+      <span class="det-title">Module A — HS Classification</span>
+      <span style="font-size:11px;font-weight:600;color:${statusCol}">${statusText}</span>
+    </div>
+    <div class="det-body">
+      <div style="display:grid;grid-template-columns:1fr auto 1fr auto;gap:12px;align-items:center;margin-bottom:12px">
+        <div>
+          <div style="font-size:10px;color:var(--muted-soft);text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px">e2open</div>
+          <div style="font-family:var(--mono);font-size:15px;font-weight:600;color:var(--amber)">${cls.e2open_hs_code || '—'}</div>
+        </div>
+        <div style="color:var(--muted-soft);font-size:14px">→</div>
+        <div>
+          <div style="font-size:10px;color:var(--muted-soft);text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px">
+            ${overridden ? 'Override' : 'AI'}
+          </div>
+          <div style="font-family:var(--mono);font-size:15px;font-weight:600;color:${agrees && !overridden ? 'var(--teal)' : 'var(--primary)'}">
+            ${cls.final_hs_code || '—'}
+          </div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:10px;color:var(--muted-soft);margin-bottom:3px">Confidence</div>
+          <div style="font-size:18px;font-weight:600;color:${barColor};font-family:var(--mono)">${conf}%</div>
+        </div>
+      </div>
+      <div style="height:6px;background:var(--hairline);border-radius:var(--r-pill);overflow:hidden;margin-bottom:10px">
+        <div style="height:100%;width:${Math.min(conf,100)}%;background:${barColor};border-radius:var(--r-pill)"></div>
+      </div>
+      ${!agrees && !overridden ? `<div style="padding:6px 10px;background:rgba(232,165,90,.08);border-left:3px solid var(--amber);border-radius:0 var(--r-md) var(--r-md) 0;font-size:11.5px;color:var(--body);margin-bottom:8px">
+        <strong style="color:var(--amber)">⚠ Disagrees with e2open.</strong> AI overrides to <span style="font-family:var(--mono)">${cls.ai_hs_code}</span>.
+      </div>` : ''}
+      ${cls.reasoning_text ? `
+      <details style="margin-top:8px">
+        <summary style="font-size:11.5px;color:var(--muted);cursor:pointer;font-weight:500">AI Reasoning — click to expand</summary>
+        <div style="margin-top:8px;padding:8px;background:var(--surface-soft);border-radius:var(--r-md);font-size:11.5px;color:var(--muted-soft);line-height:1.7">
+          ${cls.reasoning_text}
+        </div>
+      </details>` : ''}
+      ${overridden ? `<div style="margin-top:8px;font-size:11px;color:var(--teal)">✓ Analyst override on record: <span style="font-family:var(--mono)">${cls.analyst_override_hs}</span></div>` : ''}
+    </div>
+  </div>`
+}
+
+/* Module B card */
+function renderModuleBCard(fta, cif) {
+  if (!fta) return `
+  <div class="det-card">
+    <div class="det-head"><i class="ti ti-world" style="color:var(--teal);font-size:15px"></i>
+      <span class="det-title">Module B — FTA Match</span></div>
+    <div class="det-body" style="color:var(--muted-soft);font-size:12px;text-align:center;padding:16px 0">
+      Module B not run yet.
+    </div>
+  </div>`
+
+  const ftaRate = Math.min(Math.max(fta.best_fta_rate_pct ?? 0, 0), 100)
+  const mfnRate = Math.min(Math.max(fta.mfn_rate_pct     ?? 0, 0), 100)
+  const saving  = fta.duty_saving_usd || 0
+  const ftaName = fta.best_fta_name   || 'MFN'
+  const isFTA   = fta.module_b_status === 'fta_applied'
+  const badge   = isFTA
+    ? `<span style="font-size:11px;font-weight:600;color:var(--teal)">✓ ${ftaName} Applied</span>`
+    : `<span style="font-size:11px;font-weight:600;color:var(--amber)">⚠ MFN Fallback</span>`
+
+  return `
+  <div class="det-card">
+    <div class="det-head">
+      <i class="ti ti-world" style="color:var(--teal);font-size:15px"></i>
+      <span class="det-title">Module B — FTA Match</span>
+      ${badge}
+    </div>
+    <div class="det-body">
+      <div style="display:flex;gap:var(--sp-lg);margin-bottom:4px">
+        <div>
+          <div style="font-size:10px;color:var(--muted-soft);margin-bottom:2px">Best FTA</div>
+          <div style="font-size:14px;font-weight:600;color:${isFTA ? 'var(--teal)' : 'var(--muted)'}">${ftaRate}% (${ftaName})</div>
+        </div>
+        <div>
+          <div style="font-size:10px;color:var(--muted-soft);margin-bottom:2px">MFN Rate</div>
+          <div style="font-size:14px;font-weight:600;color:var(--muted)">${mfnRate}%</div>
+        </div>
+        <div>
+          <div style="font-size:10px;color:var(--muted-soft);margin-bottom:2px">Duty Saving</div>
+          <div style="font-size:14px;font-weight:600;color:${saving > 0 ? 'var(--teal)' : 'var(--muted)'}">${saving > 0 ? money(saving) : '$0.00'}</div>
+        </div>
+      </div>
+    </div>
+  </div>`
+}
+
+/* Module C card */
+function renderModuleCCard(lc) {
+  if (!lc) return `
+  <div class="det-card">
+    <div class="det-head"><i class="ti ti-receipt" style="color:var(--amber);font-size:15px"></i>
+      <span class="det-title">Module C — Landed Cost</span></div>
+    <div class="det-body" style="color:var(--muted-soft);font-size:12px;text-align:center;padding:16px 0">
+      Module C not run yet.
+    </div>
+  </div>`
+
+  const breakdown    = lc.cost_breakdown || []
+  const totalCifMyr  = breakdown.reduce((s, r) => s + (r.apportionment_metrics?.calculated_cif_myr      || 0), 0)
+  const totalDutyMyr = breakdown.reduce((s, r) => s + (r.regulatory_charges_myr?.customs_duty_charged   || 0), 0)
+  const totalTaxMyr  = breakdown.reduce((s, r) => s + (r.regulatory_charges_myr?.sales_tax_charged      || 0), 0)
+  const fxEst        = totalCifMyr > 0 && lc.cif_value_usd > 0 ? totalCifMyr / lc.cif_value_usd : 4.67
+  const procMyr      = Math.round((lc.other_fees_usd || 0) * fxEst * 100) / 100
+  const isLmw        = breakdown[0]?.flags_applied?.is_lmw_facility ?? true
+  const fmt          = n => n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
+  return `
+  <div class="det-card">
+    <div class="det-head">
+      <i class="ti ti-receipt" style="color:var(--amber);font-size:15px"></i>
+      <span class="det-title">Module C — Landed Cost</span>
+      ${isLmw ? `<span style="font-size:10px;font-weight:600;color:var(--teal)">✓ LMW Exempt</span>` : ''}
+    </div>
+    <div class="det-body">
+      <div class="cost-ln"><span class="lbl">Total CIF</span><span class="val" style="font-family:var(--mono)">MYR ${fmt(totalCifMyr)}</span></div>
+      <div class="cost-ln"><span class="lbl">Customs Duty</span><span class="val" style="color:${totalDutyMyr === 0 ? 'var(--teal)' : 'var(--ink)'}">MYR ${fmt(totalDutyMyr)}</span></div>
+      <div class="cost-ln"><span class="lbl">Sales Tax (10%)</span><span class="val" style="color:${totalTaxMyr === 0 ? 'var(--teal)' : 'var(--ink)'}">MYR ${fmt(totalTaxMyr)}</span></div>
+      <div class="cost-ln"><span class="lbl">Processing Fee</span><span class="val" style="font-family:var(--mono)">MYR ${fmt(procMyr)}</span></div>
+      <div class="cost-total"><span>Total Landed Cost</span><span class="val">USD ${fmt(lc.total_landed_cost_usd || 0)}</span></div>
+      ${(lc.fta_saving_usd || 0) > 0 ? `<div style="margin-top:8px;font-size:11px;color:var(--teal);font-weight:600;text-align:center">↓ FTA saves ${money(lc.fta_saving_usd)} vs MFN</div>` : ''}
+    </div>
+  </div>`
+}
