@@ -215,15 +215,9 @@ init()
 
 /* ── Detail panel ────────────────────────────────────────────────────────────────────── */
 function renderDetailPanel(s) {
-  // Reset action buttons (may be in loading state from previous action)
-  const btnResets = {
-    btnApprove:  '<i class="ti ti-check"></i> Approve',
-    btnEdit:     '<i class="ti ti-edit"></i> Edit HS Code',
-    btnEscalate: '<i class="ti ti-arrow-up-right"></i> Escalate',
-  }
-  Object.entries(btnResets).forEach(([id, html]) => {
-    const b = $(id); if (b) { b.disabled = false; b.innerHTML = html }
-  })
+  // Clear any open inline form from previous item
+  const prevForm = $('inlineFormContainer')
+  if (prevForm) prevForm.innerHTML = ''
 
   const cls = s.hs_classifications?.[0] || null
   const fta = s.fta_results?.[0]        || null
@@ -242,11 +236,35 @@ function renderDetailPanel(s) {
   $('detailHeader').style.display = ''
   $('actionBar').style.display    = ''
 
-  // Disable actions if already reviewed
+  // Show locked state if already reviewed, otherwise enable actions
   const reviewed = s.status === 'approved' || s.status === 'flagged'
-  ;['btnApprove','btnEdit','btnEscalate'].forEach(id => {
-    const b = $(id); if (b) b.disabled = reviewed
-  })
+  if (reviewed) {
+    const label = s.status === 'approved'
+      ? '✓ Approved — no further action needed'
+      : '↑ Escalated — awaiting senior analyst'
+    setHtml('actionBar', `
+      <div style="flex:1;text-align:center;font-size:12px;color:var(--muted-soft);padding:4px 0">
+        <span style="font-weight:600;color:${statusColor(s.status)}">${label}</span>
+        &nbsp;·&nbsp;
+        <a href="audit.html" style="color:var(--primary);text-decoration:none">View audit trail →</a>
+      </div>`)
+    $('actionBar').style.display = ''
+  } else {
+    setHtml('actionBar', `
+      <button class="btn btn-primary" id="btnApprove" onclick="doApprove()"
+        style="flex:1;justify-content:center;background:var(--teal);border-color:var(--teal)">
+        <i class="ti ti-check"></i> Approve
+      </button>
+      <button class="btn" id="btnEdit" onclick="toggleEditForm()"
+        style="flex:1;justify-content:center;background:rgba(59,130,246,.08);border-color:rgba(59,130,246,.3);color:#1d4ed8">
+        <i class="ti ti-edit"></i> Edit HS Code
+      </button>
+      <button class="btn" id="btnEscalate" onclick="toggleEscalateForm()"
+        style="flex:1;justify-content:center;background:rgba(232,165,90,.08);border-color:rgba(232,165,90,.3);color:#92400e">
+        <i class="ti ti-arrow-up-right"></i> Escalate
+      </button>`)
+    $('actionBar').style.display = ''
+  }
 
   // Body cards
   setHtml('detailBody',
