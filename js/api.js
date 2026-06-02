@@ -21,9 +21,8 @@ async function apiFetch(path, method = 'GET', body = null) {
 
 /* ── Shipments ────────────────────────────────────────────────── */
 async function fetchShipments(status = 'all') {
-  const res  = await fetch(`${API}/api/shipments?status=${status}`)
-  const json = await res.json()
-  return json.data || []
+  const res = await apiFetch(`/api/shipments?status=${status}`)
+  return res.data || []
 }
 async function fetchShipmentDetail(sapId) {
   return apiFetch(`/api/shipments/${sapId}`)
@@ -45,12 +44,25 @@ async function runModuleB(shipmentId) {
   return apiFetch(`/api/match-fta/${shipmentId}`, 'POST')
 }
 
+/* ── Module C — Landed Cost ───────────────────────────────────── */
+async function runModuleC(shipmentId) {
+  return apiFetch(`/api/calculate-landed-cost/${shipmentId}`, 'POST')
+}
+
 /* ── Approve / Flag ───────────────────────────────────────────── */
 async function approveShipment(shipmentId) {
   return apiFetch(`/api/shipments/${shipmentId}/approve`, 'POST')
 }
 async function flagShipment(shipmentId) {
   return apiFetch(`/api/shipments/${shipmentId}/flag`, 'POST')
+}
+
+/* ── Human Validation ─────────────────────────────────────────── */
+async function overrideHSCode(shipmentId, hsCode, reason) {
+  return apiFetch(`/api/shipments/${shipmentId}/override-hs`, 'POST', { hs_code: hsCode, reason })
+}
+async function escalateShipment(shipmentId, assignee, notes) {
+  return apiFetch(`/api/shipments/${shipmentId}/escalate`, 'POST', { assignee, notes })
 }
 
 /* ── FTA Library ──────────────────────────────────────────────── */

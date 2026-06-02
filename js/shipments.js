@@ -110,7 +110,7 @@ function renderTable() {
 
     return `
     <div class="tbl-row fade-in"
-         onclick="window.location='index.html?id=${s.sap_shipment_id}'"
+         onclick="window.location='verification.html?id=${s.sap_shipment_id}'"
          title="Open detail for ${s.sap_shipment_id}">
 
       <span>
@@ -156,14 +156,9 @@ function renderTable() {
         <button class="ibt" title="Run Module B" onclick="doRunB('${s.sap_shipment_id}', this)">
           <i class="ti ti-world"></i>
         </button>
-        <button class="ibt ok" title="Approve shipment" onclick="doApprove('${s.sap_shipment_id}', this)">
-          <i class="ti ti-check"></i>
-        </button>
-        <button class="ibt flag-it" title="Flag for review" onclick="doFlag('${s.sap_shipment_id}', this)">
-          <i class="ti ti-flag"></i>
-        </button>
-        <button class="ibt" title="Open full detail" onclick="window.location='index.html?id=${s.sap_shipment_id}'">
-          <i class="ti ti-arrow-right"></i>
+        <button class="ibt" title="Review in Validation Dashboard"
+          onclick="event.stopPropagation();window.location='verification.html?id=${s.sap_shipment_id}'">
+          <i class="ti ti-shield-check"></i>
         </button>
       </span>
     </div>`
@@ -210,38 +205,6 @@ async function doRunB(id, btn) {
     await loadAll()
   } catch (e) {
     showToast('Module B error: ' + e.message, true)
-    btn.disabled = false
-    btn.innerHTML = orig
-  }
-}
-
-/* ── Approve ──────────────────────────────────────────────────── */
-async function doApprove(id, btn) {
-  const orig = btn.innerHTML
-  btn.disabled = true
-  btn.innerHTML = '<i class="ti ti-loader-2 spin"></i>'
-  try {
-    await approveShipment(id)
-    showToast(`✓ ${id} approved — audit entry created`)
-    await loadAll()
-  } catch (e) {
-    showToast('Approve failed: ' + e.message, true)
-    btn.disabled = false
-    btn.innerHTML = orig
-  }
-}
-
-/* ── Flag ─────────────────────────────────────────────────────── */
-async function doFlag(id, btn) {
-  const orig = btn.innerHTML
-  btn.disabled = true
-  btn.innerHTML = '<i class="ti ti-loader-2 spin"></i>'
-  try {
-    await flagShipment(id)
-    showToast(`⚠ ${id} flagged for analyst review`)
-    await loadAll()
-  } catch (e) {
-    showToast('Flag failed: ' + e.message, true)
     btn.disabled = false
     btn.innerHTML = orig
   }

@@ -424,6 +424,7 @@
         <div class="nav-label">Analysis</div>
         <div class="nav-item active" data-page="index" onclick="showView('lookup')"><i class="ti ti-search"></i> Shipment Lookup</div>
         <div class="nav-item" data-page="shipments" onclick="location='shipments.html'"><i class="ti ti-list-check"></i> All Shipments</div>
+        <div class="nav-item" data-page="verification" onclick="location='verification.html'"><i class="ti ti-shield-check"></i> Validation</div>
         <div class="nav-item" data-page="audit" onclick="location='audit.html'"><i class="ti ti-clock-history"></i> Audit Trail</div>
       </div>
       <div class="nav-section">
@@ -528,6 +529,9 @@
               <button class="btn" id="btnRunB" onclick="triggerB()">
                 <i class="ti ti-world"></i> Run Module B
               </button>
+              <button class="btn" id="btnRunC" onclick="triggerC()">
+                <i class="ti ti-calculator"></i> Run Module C
+              </button>
               <button class="act-btn act-approve" style="height:33px;border-radius:var(--r-md);font-size:12.5px;font-weight:500;display:flex;align-items:center;justify-content:center;gap:5px;padding:0 12px" onclick="openModal('approvedModal')">
                 <i class="ti ti-check" style="font-size:13px"></i> Approve
               </button>
@@ -594,9 +598,9 @@
                 <div class="mod-badge mod-badge-c">C</div>
                 <div style="flex:1">
                   <div class="mod-title">Landed Cost Calculator</div>
-                  <div class="mod-sub">Teammate C — your module to build</div>
+                  <div class="mod-sub">CIF · LMW · ADD · Sales Tax · Processing Fee</div>
                 </div>
-                <span class="mod-status-badge" style="background:rgba(217,119,6,.10);color:#d97706">
+                <span class="mod-status-badge" id="modCBadge" style="background:rgba(217,119,6,.10);color:#d97706">
                   ⬅ Build This
                 </span>
               </div>
@@ -627,6 +631,11 @@
                   <span class="formula-total-lbl"><i class="ti ti-calculator" style="margin-right:4px"></i>Total Landed Cost</span>
                   <span class="formula-total-val" id="mcTotal">Awaiting Module C</span>
                 </div>
+              </div>
+              <div class="mod-footer">
+                <button class="btn" style="flex:1;justify-content:center" id="btnRunC2" onclick="triggerC()">
+                  <i class="ti ti-calculator"></i> Run Module C
+                </button>
               </div>
             </div>
 
@@ -679,7 +688,7 @@
             <div style="text-align:center;color:var(--muted-soft);font-size:18px">→</div>
             <div style="text-align:center">
               <div style="font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:#d97706;margin-bottom:4px">Module C · Teammate C ⬅</div>
-              <div style="font-size:20px;font-weight:600;color:#d97706">0</div>
+              <div style="font-size:20px;font-weight:600;color:#d97706" id="pipeCCount">—</div>
               <div style="font-size:11px;color:var(--muted-soft)">landed costs calculated</div>
             </div>
           </div>

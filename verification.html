@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NEXA · Validation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.2.0/tabler-icons.min.css">
+<link rel="stylesheet" href="css/styles.css">
+<style>
+/* Split-panel layout — full height below topbar */
+.validation-layout {
+  display: flex;
+  height: calc(100vh - 54px);
+  overflow: hidden;
+}
+
+/* Left queue panel */
+.queue-panel {
+  width: 300px;
+  min-width: 300px;
+  border-right: 1px solid var(--hairline);
+  display: flex;
+  flex-direction: column;
+  background: var(--canvas);
+  overflow: hidden;
+}
+.queue-header {
+  padding: 14px var(--sp-md) 10px;
+  border-bottom: 1px solid var(--hairline);
+}
+.queue-header-title { font-size: 13px; font-weight: 600; color: var(--ink); }
+.queue-header-meta  { font-size: 11px; color: var(--muted-soft); margin-top: 2px; }
+.queue-progress {
+  height: 4px;
+  background: var(--hairline);
+  border-radius: var(--r-pill);
+  margin-top: 8px;
+  overflow: hidden;
+}
+.queue-progress-fill {
+  height: 100%;
+  background: var(--primary);
+  border-radius: var(--r-pill);
+  transition: width .3s ease;
+}
+.reg-alert {
+  padding: 8px var(--sp-md);
+  background: rgba(232,165,90,.08);
+  border-bottom: 1px solid var(--amber);
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+.reg-alert i { color: var(--amber); margin-top: 1px; flex-shrink: 0; }
+.reg-alert-title { font-size: 11px; font-weight: 600; color: var(--body-strong); }
+.reg-alert-body  { font-size: 10.5px; color: var(--muted); }
+.queue-list { flex: 1; overflow-y: auto; }
+.queue-item {
+  padding: 9px var(--sp-md);
+  border-bottom: 1px solid var(--hairline-soft);
+  cursor: pointer;
+  transition: background .1s;
+  border-left: 3px solid transparent;
+}
+.queue-item:hover    { background: var(--surface-soft); }
+.queue-item.selected { background: var(--surface-card); }
+.qi-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px; }
+.qi-id  { font-size: 12px; font-weight: 600; color: var(--ink); font-family: var(--mono); }
+.qi-name { font-size: 11px; color: var(--muted-soft); margin-bottom: 4px;
+           overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.qi-conf { display: flex; align-items: center; gap: 6px; }
+.conf-track { height: 3px; flex: 1; background: var(--hairline); border-radius: var(--r-pill); overflow: hidden; }
+.conf-fill  { height: 100%; border-radius: var(--r-pill); }
+.queue-footer {
+  padding: 10px var(--sp-md);
+  border-top: 1px solid var(--hairline);
+  background: var(--surface-soft);
+}
+.queue-footer-note { font-size: 10px; color: var(--muted-soft); text-align: center; margin-top: 4px; }
+
+/* Right detail panel */
+.detail-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--surface-soft);
+}
+.detail-header {
+  padding: 12px var(--sp-xl);
+  background: var(--canvas);
+  border-bottom: 1px solid var(--hairline);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0;
+}
+.detail-title { font-size: 14px; font-weight: 600; color: var(--ink); }
+.detail-meta  { font-size: 11px; color: var(--muted-soft); margin-top: 2px; }
+.detail-body  {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--sp-lg) var(--sp-xl);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-md);
+}
+.detail-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted-soft);
+  font-size: 13px;
+  text-align: center;
+  line-height: 1.8;
+}
+
+/* Action bar */
+.action-bar {
+  padding: 12px var(--sp-xl);
+  background: var(--canvas);
+  border-top: 2px solid var(--hairline);
+  display: flex;
+  gap: var(--sp-sm);
+  align-items: center;
+  flex-shrink: 0;
+}
+.action-bar .btn { flex: 1; justify-content: center; }
+
+/* Inline forms */
+.inline-form {
+  background: var(--surface-soft);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-lg);
+  padding: var(--sp-md);
+  margin-top: var(--sp-sm);
+}
+.inline-form .field       { margin-bottom: var(--sp-sm); }
+.inline-form label        { display: block; font-size: 11px; font-weight: 500; color: var(--muted); margin-bottom: 4px; }
+.inline-form input,
+.inline-form select,
+.inline-form textarea     { width: 100%; padding: 7px 10px; border: 1px solid var(--hairline);
+                            border-radius: var(--r-md); font-size: 12.5px; font-family: var(--sans);
+                            background: var(--canvas); color: var(--ink); }
+.inline-form input:focus,
+.inline-form select:focus,
+.inline-form textarea:focus { outline: none; border-color: var(--primary); }
+.inline-form .required    { color: var(--error); }
+.inline-form .form-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: var(--sp-sm); }
+.field-error { border-color: var(--error) !important; }
+
+/* Completion state */
+.completion-card {
+  background: var(--canvas);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-lg);
+  padding: var(--sp-xl);
+  text-align: center;
+  margin: auto;
+  max-width: 420px;
+}
+.completion-icon  { font-size: 48px; color: var(--teal); margin-bottom: var(--sp-md); }
+.completion-title { font-size: 18px; font-weight: 600; color: var(--ink); margin-bottom: 6px; }
+.completion-sub   { font-size: 13px; color: var(--muted-soft); margin-bottom: var(--sp-lg); }
+.completion-stats { display: grid; grid-template-columns: repeat(3,1fr); gap: var(--sp-sm); margin-bottom: var(--sp-lg); }
+.stat-box { background: var(--surface-soft); border-radius: var(--r-md); padding: var(--sp-sm); }
+.stat-val { font-size: 20px; font-weight: 600; color: var(--ink); }
+.stat-lbl { font-size: 10px; color: var(--muted-soft); }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-row">
+        <div class="logo-mark">
+          <svg viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M7.5 1v2M7.5 12v2M1 7.5h2M12 7.5h2M2.87 2.87l1.41 1.41M10.72 10.72l1.41 1.41M12.13 2.87l-1.41 1.41M4.28 10.72l-1.41 1.41" stroke="#a09d96" stroke-width="1.4" stroke-linecap="round"/>
+            <circle cx="7.5" cy="7.5" r="2" fill="#cc785c"/>
+          </svg>
+        </div>
+        <span class="logo-wordmark">NEXA Trade AI</span>
+      </div>
+      <div class="logo-sub">Jabil · Global Trade Compliance</div>
+    </div>
+    <nav class="nav">
+      <div class="nav-section">
+        <div class="nav-label">Analysis</div>
+        <div class="nav-item" data-page="index"        onclick="location='index.html'"><i class="ti ti-search"></i> Shipment Lookup</div>
+        <div class="nav-item" data-page="shipments"    onclick="location='shipments.html'"><i class="ti ti-list-check"></i> All Shipments</div>
+        <div class="nav-item" data-page="verification" onclick="location='verification.html'">
+          <i class="ti ti-shield-check"></i> Validation
+          <span class="nav-badge warn" id="navPending">—</span>
+        </div>
+        <div class="nav-item" data-page="audit"        onclick="location='audit.html'"><i class="ti ti-clock-history"></i> Audit Trail</div>
+      </div>
+      <div class="nav-section">
+        <div class="nav-label">Intelligence</div>
+        <div class="nav-item" data-page="fta-library"  onclick="location='fta-library.html'"><i class="ti ti-world"></i> FTA Library</div>
+        <div class="nav-item" data-page="reports"      onclick="location='reports.html'"><i class="ti ti-chart-bar"></i> Analytics</div>
+      </div>
+      <div class="nav-section">
+        <div class="nav-label">System</div>
+        <div class="nav-item" onclick="runSeedAndRefresh()"><i class="ti ti-database"></i> Re-Seed Data</div>
+        <div class="nav-item" onclick="showToast('Configuration — coming soon')"><i class="ti ti-settings"></i> Configuration</div>
+      </div>
+    </nav>
+    <div class="sidebar-user">
+      <div class="user-card">
+        <div class="avatar">SL</div>
+        <div>
+          <div class="user-name">Sarah Lim</div>
+          <div class="user-role">Trade Compliance Analyst</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <div class="main">
+
+    <!-- Topbar -->
+    <div class="topbar">
+      <div class="topbar-crumb">
+        NEXA <i class="ti ti-chevron-right"></i> <strong>Human Validation</strong>
+      </div>
+      <div class="live-row"><div class="live-dot"></div> Live · Supabase</div>
+      <button class="btn" onclick="init()"><i class="ti ti-refresh"></i> Refresh</button>
+    </div>
+
+    <!-- Split-panel layout (no .content wrapper — needs full height) -->
+    <div class="validation-layout">
+
+      <!-- LEFT: Queue panel -->
+      <div class="queue-panel">
+
+        <div class="queue-header">
+          <div class="queue-header-title">Review Queue</div>
+          <div class="queue-header-meta" id="queueMeta">Loading…</div>
+          <div class="queue-progress"><div class="queue-progress-fill" id="queueProgressFill" style="width:0%"></div></div>
+        </div>
+
+        <!-- Regulatory alert (hidden by default) -->
+        <div class="reg-alert" id="regAlert" style="display:none">
+          <i class="ti ti-alert-triangle" style="font-size:15px"></i>
+          <div>
+            <div class="reg-alert-title" id="regAlertTitle">Regulatory Alert</div>
+            <div class="reg-alert-body"  id="regAlertBody">—</div>
+          </div>
+        </div>
+
+        <!-- Filter tabs -->
+        <div class="filter-bar" style="background:var(--surface-soft)">
+          <button class="tab active" onclick="setQueueFilter('all',this)">All</button>
+          <button class="tab flag-tab" onclick="setQueueFilter('flagged',this)">
+            <i class="ti ti-alert-circle" style="font-size:11px"></i> Flagged
+          </button>
+          <button class="tab" onclick="setQueueFilter('pending',this)">Pending</button>
+          <button class="tab" onclick="setQueueFilter('approved',this)">
+            <i class="ti ti-check" style="font-size:11px"></i> Done
+          </button>
+        </div>
+
+        <!-- Queue items -->
+        <div class="queue-list" id="queueList">
+          <div style="padding:24px;text-align:center;color:var(--muted-soft);font-size:12px">
+            <i class="ti ti-loader-2 spin" style="font-size:20px;display:block;margin-bottom:8px"></i>
+            Loading…
+          </div>
+        </div>
+
+        <!-- Bulk approve footer -->
+        <div class="queue-footer">
+          <button class="btn btn-primary" style="width:100%;justify-content:center" id="bulkApproveBtn" onclick="doBulkApprove()" disabled>
+            <i class="ti ti-checks"></i> Bulk Approve ≥95% (0)
+          </button>
+          <div class="queue-footer-note">Each approval logged individually</div>
+        </div>
+
+      </div>
+
+      <!-- RIGHT: Detail panel -->
+      <div class="detail-panel">
+
+        <div class="detail-header" id="detailHeader" style="display:none">
+          <div>
+            <div class="detail-title" id="detailTitle">—</div>
+            <div class="detail-meta"  id="detailMeta">—</div>
+          </div>
+          <span class="pill" id="detailStatusPill">—</span>
+        </div>
+
+        <div class="detail-body" id="detailBody">
+          <div class="detail-empty">
+            <div>
+              <i class="ti ti-shield-check" style="font-size:40px;display:block;margin-bottom:12px;color:var(--hairline)"></i>
+              <strong style="color:var(--ink);font-size:14px">Select a shipment to review</strong><br>
+              Choose an item from the queue on the left.
+            </div>
+          </div>
+        </div>
+
+        <div class="action-bar" id="actionBar" style="display:none">
+          <button class="btn btn-primary" id="btnApprove" onclick="doApprove()" style="background:var(--teal);border-color:var(--teal)">
+            <i class="ti ti-check"></i> Approve
+          </button>
+          <button class="btn" id="btnEdit" onclick="toggleEditForm()" style="background:rgba(59,130,246,.08);border-color:rgba(59,130,246,.3);color:#1d4ed8">
+            <i class="ti ti-edit"></i> Edit HS Code
+          </button>
+          <button class="btn" id="btnEscalate" onclick="toggleEscalateForm()" style="background:rgba(232,165,90,.08);border-color:rgba(232,165,90,.3);color:#92400e">
+            <i class="ti ti-arrow-up-right"></i> Escalate
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="toast" onclick="this.classList.remove('show')">
+  <span id="toastMsg"></span>
+</div>
+
+<script src="js/shared.js"></script>
+<script src="js/api.js"></script>
+<script src="js/verification.js"></script>
+</body>
+</html>
