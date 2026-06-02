@@ -512,3 +512,76 @@ async function submitEscalateForm() {
     if (btn) { btn.disabled = false; btn.innerHTML = '<i class="ti ti-arrow-up-right"></i> Escalate' }
   }
 }
+
+/* ── Refresh + auto-advance ──────────────────────────────────── */
+async function refreshAndAdvance(id, newStatus) {
+  // Update local state immediately (optimistic update)
+  const ship = SHIPMENTS.find(s => s.sap_shipment_id === id)
+  if (ship) ship.status = newStatus
+
+  updateQueueHeader()
+  renderQueue()
+  updateBulkApproveBtn()
+  updateNavBadge()
+
+  // Check if all items are reviewed
+  const allReviewed = SHIPMENTS.every(s => s.status === 'approved' || s.status === 'flagged')
+  if (allReviewed) {
+    showCompletionState()
+    return
+  }
+
+  // Advance to next pending item
+  const currentIndex = SHIPMENTS.findIndex(s => s.sap_shipment_id === id)
+  const remaining    = SHIPMENTS.filter(s => s.status === 'pending')
+  if (remaining.length > 0) {
+    // Prefer next item after current in list order
+    const next = SHIPMENTS.slice(currentIndex + 1).find(s => s.status === 'pending')
+              || remaining[0]
+    selectItem(next.sap_shipment_id)
+  }
+}
+
+/* ── Completion state ────────────────────────────────────────── */
+function showCompletionState() {
+  currentId = null
+  renderQueue()
+
+  const approved  = SHIPMENTS.filter(s => s.status === 'approved').length
+  const escalated = SHIPMENTS.filter(s => s.status === 'flagged').length
+  const total     = SHIPMENTS.length
+
+  $('detailHeader').style.display = 'none'
+  $('actionBar').style.display    = 'none'
+
+  setHtml('detailBody', `
+    <div style="display:flex;align-items:center;justify-content:center;flex:1;min-height:300px">
+      <div class="completion-card">
+        <div class="completion-icon"><i class="ti ti-circle-check"></i></div>
+        <div class="completion-title">All ${total} items reviewed</div>
+        <div class="completion-sub">Every shipment has a recorded human decision.<br>Ready for SAP submission.</div>
+        <div class="completion-stats">
+          <div class="stat-box">
+            <div class="stat-val" style="color:var(--teal)">${approved}</div>
+            <div class="stat-lbl">Approved</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-val" style="color:var(--amber)">${escalated}</div>
+            <div class="stat-lbl">Escalated</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-val" style="color:var(--ink)">${total}</div>
+            <div class="stat-lbl">Total</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:var(--sp-sm);justify-content:center">
+          <button class="btn btn-primary" onclick="showToast('SAP writeback queued — feature coming soon')">
+            <i class="ti ti-send"></i> Submit to SAP
+          </button>
+          <button class="btn" onclick="location.assign('audit.html')">
+            <i class="ti ti-download"></i> View Audit Trail
+          </button>
+        </div>
+      </div>
+    </div>`)
+}
