@@ -380,3 +380,135 @@ function renderModuleCCard(lc) {
     </div>
   </div>`
 }
+
+/* ── Approve ─────────────────────────────────────────────────── */
+async function doApprove() {
+  if (!currentId) return
+  const btn = $('btnApprove')
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader-2 spin"></i> Approving…' }
+  try {
+    await approveShipment(currentId)
+    showToast(`✓ ${currentId} approved`)
+    await refreshAndAdvance(currentId, 'approved')
+  } catch (e) {
+    showToast('Approve failed: ' + e.message, true)
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="ti ti-check"></i> Approve' }
+  }
+}
+
+/* ── Edit HS Code form ───────────────────────────────────────── */
+function toggleEditForm() {
+  const container = $('inlineFormContainer')
+  if (!container) return
+  if (container.innerHTML.includes('editForm')) {
+    container.innerHTML = ''
+    return
+  }
+  container.innerHTML = ''
+
+  const currentHS = SHIPMENTS.find(s => s.sap_shipment_id === currentId)
+    ?.hs_classifications?.[0]?.final_hs_code || ''
+
+  container.innerHTML = `
+  <div class="inline-form" id="editForm">
+    <div style="font-size:12px;font-weight:600;color:var(--ink);margin-bottom:var(--sp-sm)">Override HS Code</div>
+    <div style="font-size:11px;color:var(--muted-soft);margin-bottom:var(--sp-sm)">
+      Current: <span style="font-family:var(--mono);color:var(--primary)">${currentHS}</span>
+    </div>
+    <div class="field">
+      <label>New HS Code <span class="required">*</span></label>
+      <input type="text" id="overrideHSInput" placeholder="e.g. 8542.31" autocomplete="off">
+    </div>
+    <div class="field">
+      <label>Reason for override <span class="required">*</span></label>
+      <textarea id="overrideReasonInput" rows="3" placeholder="e.g. Confirmed as IC per supplier datasheet Rev.C"></textarea>
+    </div>
+    <div class="form-actions">
+      <button class="btn" onclick="$('inlineFormContainer').innerHTML=''">Cancel</button>
+      <button class="btn btn-primary" onclick="submitEditForm()"><i class="ti ti-check"></i> Save Override</button>
+    </div>
+  </div>`
+
+  $('overrideHSInput')?.focus()
+}
+
+async function submitEditForm() {
+  const hsCode = ($('overrideHSInput')?.value || '').trim()
+  const reason = ($('overrideReasonInput')?.value || '').trim()
+
+  let valid = true
+  if (!hsCode) { $('overrideHSInput')?.classList.add('field-error');    valid = false }
+  else           $('overrideHSInput')?.classList.remove('field-error')
+  if (!reason) { $('overrideReasonInput')?.classList.add('field-error'); valid = false }
+  else           $('overrideReasonInput')?.classList.remove('field-error')
+  if (!valid) return
+
+  const btn = document.querySelector('#editForm .btn-primary')
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader-2 spin"></i> Saving…' }
+  try {
+    await overrideHSCode(currentId, hsCode, reason)
+    showToast(`✓ ${currentId} HS code overridden to ${hsCode}`)
+    $('inlineFormContainer').innerHTML = ''
+    await refreshAndAdvance(currentId, 'approved')
+  } catch (e) {
+    showToast('Override failed: ' + e.message, true)
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="ti ti-check"></i> Save Override' }
+  }
+}
+
+/* ── Escalate form ───────────────────────────────────────────── */
+function toggleEscalateForm() {
+  const container = $('inlineFormContainer')
+  if (!container) return
+  if (container.innerHTML.includes('escalateForm')) {
+    container.innerHTML = ''
+    return
+  }
+  container.innerHTML = ''
+
+  container.innerHTML = `
+  <div class="inline-form" id="escalateForm">
+    <div style="font-size:12px;font-weight:600;color:var(--ink);margin-bottom:var(--sp-sm)">Escalate to Senior Analyst</div>
+    <div class="field">
+      <label>Assign to</label>
+      <select id="escalateAssignee">
+        <option value="James Tan">James Tan — Senior Trade Compliance Analyst</option>
+        <option value="Priya Nair">Priya Nair — Compliance Manager</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Notes <span class="required">*</span></label>
+      <textarea id="escalateNotes" rows="3" placeholder="Describe the issue requiring senior review…"></textarea>
+    </div>
+    <div class="form-actions">
+      <button class="btn" onclick="$('inlineFormContainer').innerHTML=''">Cancel</button>
+      <button class="btn" id="btnEscalateSubmit"
+        style="background:rgba(232,165,90,.1);border-color:var(--amber);color:#92400e"
+        onclick="submitEscalateForm()">
+        <i class="ti ti-arrow-up-right"></i> Escalate
+      </button>
+    </div>
+  </div>`
+
+  $('escalateNotes')?.focus()
+}
+
+async function submitEscalateForm() {
+  const assignee = $('escalateAssignee')?.value || 'Senior Analyst'
+  const notes    = ($('escalateNotes')?.value || '').trim()
+
+  if (!notes) { $('escalateNotes')?.classList.add('field-error'); return }
+  $('escalateNotes')?.classList.remove('field-error')
+
+  const btn = $('btnEscalateSubmit')
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader-2 spin"></i> Escalating…' }
+  try {
+    await escalateShipment(currentId, assignee, notes)
+    showToast(`✓ ${currentId} escalated to ${assignee}`)
+    $('inlineFormContainer').innerHTML = ''
+    await refreshAndAdvance(currentId, 'flagged')
+  } catch (e) {
+    showToast('Escalate failed: ' + e.message, true)
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="ti ti-arrow-up-right"></i> Escalate' }
+  }
+}
