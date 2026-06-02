@@ -237,3 +237,78 @@ async def calculate_landed_cost_endpoint(shipment_id: str, request: Request):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# Human Validation — HS Code Override
+@router.post("/api/shipments/{shipment_id}/override-hs")
+async def override_hs_code(shipment_id: str, request: Request):
+    try:
+        body      = await request.json()
+        hs_code   = (body.get("hs_code")  or "").strip()
+        reason    = (body.get("reason")   or "").strip()
+        if not hs_code or not reason:
+            raise HTTPException(status_code=400, detail="hs_code and reason are required")
+
+        supabase = request.app.state.supabase
+
+        ship = supabase.table("shipments").select("id") \
+            .eq("sap_shipment_id", shipment_id).single().execute()
+        if not ship.data:
+            raise HTTPException(status_code=404, detail="Shipment not found")
+
+        # Update latest classification record
+        cls_res = supabase.table("hs_classifications").select("id") \
+            .eq("shipment_id", ship.data["id"]) \
+            .order("created_at", desc=True).limit(1).execute()
+        if cls_res.data:
+            supabase.table("hs_classifications").update({
+                "analyst_override_hs": hs_code,
+                "final_hs_code":       hs_code,
+                "module_a_status":     "auto_passed"
+            }).eq("id", cls_res.data[0]["id"]).execute()
+
+        supabase.table("shipments").update({"status": "approved"}) \
+            .eq("sap_shipment_id", shipment_id).execute()
+
+        supabase.table("audit_trail").insert({
+            "shipment_id": ship.data["id"],
+            "action": f"{shipment_id} HS code overridden to {hs_code} by analyst. Reason: {reason}"
+        }).execute()
+
+        return {"status": "ok", "message": f"HS overridden to {hs_code}"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# Human Validation — Escalate
+@router.post("/api/shipments/{shipment_id}/escalate")
+async def escalate_shipment(shipment_id: str, request: Request):
+    try:
+        body     = await request.json()
+        assignee = (body.get("assignee") or "Senior Analyst").strip()
+        notes    = (body.get("notes")    or "").strip()
+        if not notes:
+            raise HTTPException(status_code=400, detail="notes are required")
+
+        supabase = request.app.state.supabase
+
+        ship = supabase.table("shipments").select("id") \
+            .eq("sap_shipment_id", shipment_id).single().execute()
+        if not ship.data:
+            raise HTTPException(status_code=404, detail="Shipment not found")
+
+        supabase.table("shipments").update({"status": "flagged"}) \
+            .eq("sap_shipment_id", shipment_id).execute()
+
+        supabase.table("audit_trail").insert({
+            "shipment_id": ship.data["id"],
+            "action": f"{shipment_id} escalated to {assignee}. Notes: {notes}"
+        }).execute()
+
+        return {"status": "ok", "message": f"Escalated to {assignee}"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
