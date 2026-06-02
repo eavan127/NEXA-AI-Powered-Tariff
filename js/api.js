@@ -58,6 +58,14 @@ async function flagShipment(shipmentId) {
   return apiFetch(`/api/shipments/${shipmentId}/flag`, 'POST')
 }
 
+/* ── Human Validation ─────────────────────────────────────────── */
+async function overrideHSCode(shipmentId, hsCode, reason) {
+  return apiFetch(`/api/shipments/${shipmentId}/override-hs`, 'POST', { hs_code: hsCode, reason })
+}
+async function escalateShipment(shipmentId, assignee, notes) {
+  return apiFetch(`/api/shipments/${shipmentId}/escalate`, 'POST', { assignee, notes })
+}
+
 /* ── FTA Library ──────────────────────────────────────────────── */
 async function fetchFTACoverage() {
   return apiFetch('/api/fta-coverage')
