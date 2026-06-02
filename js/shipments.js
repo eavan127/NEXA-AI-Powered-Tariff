@@ -132,8 +132,10 @@ function renderTable() {
   setHtml('tblBody', items.map(s => {
     const cls    = s.hs_classifications?.[0] || {}
     const fta    = s.fta_results?.[0]        || {}
+    const lc     = s.landed_costs?.[0]       || {}
     const hasA   = !!cls.final_hs_code
     const hasB   = !!fta.best_fta_name
+    const hasC   = !!lc.total_landed_cost_usd
     const conf   = cls.confidence_score || 0
     const saving = fta.duty_saving_usd  || 0
     const ftaNm  = fta.best_fta_name    || '—'
@@ -154,7 +156,7 @@ function renderTable() {
       <span>
         <div class="prod-name">${s.product_description}</div>
         <div class="prod-origin" style="display:flex;gap:8px;margin-top:2px">
-          ${pDot(hasA, 'A')} ${pDot(hasB, 'B')} ${pDot(false, 'C')}
+          ${pDot(hasA, 'A')} ${pDot(hasB, 'B')} ${pDot(hasC, 'C')}
         </div>
       </span>
 
