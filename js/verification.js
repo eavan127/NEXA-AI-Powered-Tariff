@@ -50,7 +50,6 @@ function updateQueueHeader() {
   setText('queueMeta', `${reviewed} of ${total} reviewed · ${total - reviewed} remaining`)
   const fill = $('queueProgressFill')
   if (fill) fill.style.width = pct + '%'
-  setText('navPending', total - reviewed || 0)
 }
 
 /* ── Queue filter ────────────────────────────────────────────── */
@@ -200,6 +199,16 @@ init()
 
 /* ── Detail panel ────────────────────────────────────────────────────────────────────── */
 function renderDetailPanel(s) {
+  // Reset action buttons (may be in loading state from previous action)
+  const btnResets = {
+    btnApprove:  '<i class="ti ti-check"></i> Approve',
+    btnEdit:     '<i class="ti ti-edit"></i> Edit HS Code',
+    btnEscalate: '<i class="ti ti-arrow-up-right"></i> Escalate',
+  }
+  Object.entries(btnResets).forEach(([id, html]) => {
+    const b = $(id); if (b) { b.disabled = false; b.innerHTML = html }
+  })
+
   const cls = s.hs_classifications?.[0] || null
   const fta = s.fta_results?.[0]        || null
   const lc  = s.landed_costs?.[0]       || null
@@ -538,7 +547,7 @@ async function refreshAndAdvance(id, newStatus) {
     // Prefer next item after current in list order
     const next = SHIPMENTS.slice(currentIndex + 1).find(s => s.status === 'pending')
               || remaining[0]
-    selectItem(next.sap_shipment_id)
+    await selectItem(next.sap_shipment_id)
   }
 }
 

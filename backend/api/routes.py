@@ -265,6 +265,13 @@ async def override_hs_code(shipment_id: str, request: Request):
                 "analyst_override_hs": hs_code,
                 "final_hs_code":       hs_code,
             }).eq("id", cls_res.data[0]["id"]).execute()
+        else:
+            supabase.table("hs_classifications").insert({
+                "shipment_id":        ship.data["id"],
+                "analyst_override_hs": hs_code,
+                "final_hs_code":       hs_code,
+                "module_a_status":    "auto_passed",
+            }).execute()
 
         supabase.table("shipments").update({"status": "approved"}) \
             .eq("sap_shipment_id", shipment_id).execute()

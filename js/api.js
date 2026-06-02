@@ -21,9 +21,8 @@ async function apiFetch(path, method = 'GET', body = null) {
 
 /* ── Shipments ────────────────────────────────────────────────── */
 async function fetchShipments(status = 'all') {
-  const res  = await fetch(`${API}/api/shipments?status=${status}`)
-  const json = await res.json()
-  return json.data || []
+  const res = await apiFetch(`/api/shipments?status=${status}`)
+  return res.data || []
 }
 async function fetchShipmentDetail(sapId) {
   return apiFetch(`/api/shipments/${sapId}`)
