@@ -836,11 +836,58 @@ function showCompletionState() {
           </div>
         </div>
         <div style="display:flex;gap:var(--sp-sm);justify-content:center">
-          <button class="btn btn-primary" onclick="showToast('SAP writeback queued — feature coming soon')">
+          <button class="btn btn-primary" id="btnSubmitSAP" onclick="doSubmitBatch()">
             <i class="ti ti-send"></i> Submit to SAP
           </button>
           <button class="btn" onclick="location.assign('audit.html')">
             <i class="ti ti-download"></i> View Audit Trail
+          </button>
+        </div>
+      </div>
+    </div>`)
+}
+
+async function doSubmitBatch() {
+  const btn = $('btnSubmitSAP')
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader-2 spin"></i> Submitting…' }
+  try {
+    const r = await submitBatchToSAP()
+    const submitted = r.data?.submitted || []
+    const errors    = r.data?.errors    || []
+    if (submitted.length > 0) {
+      showToast(`✓ ${submitted.length} shipments submitted to SAP`)
+    }
+    if (errors.length > 0) {
+      showToast(`⚠ ${errors.length} failed: ${errors.map(e=>e.shipment_id).join(', ')}`, true)
+    }
+    // Reload to reflect "submitted" status
+    SHIPMENTS = await fetchShipments()
+    updateQueueHeader()
+    renderQueue()
+    showSubmissionResult(submitted)
+  } catch (e) {
+    showToast('SAP submission failed: ' + e.message, true)
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="ti ti-send"></i> Submit to SAP' }
+  }
+}
+
+function showSubmissionResult(submitted) {
+  setHtml('detailBody', `
+    <div style="display:flex;align-items:center;justify-content:center;flex:1;height:100%">
+      <div class="completion-card">
+        <div class="completion-icon" style="color:var(--teal)"><i class="ti ti-circle-check"></i></div>
+        <div class="completion-title">Batch submitted to SAP</div>
+        <div class="completion-sub">${submitted.length} shipments written to SAP S/4HANA with duty figures and audit trail.</div>
+        <div style="margin-top:16px;text-align:left;font-size:12px;font-family:var(--mono);background:var(--surface-soft);padding:12px;border-radius:var(--r-md);max-height:200px;overflow-y:auto">
+          ${submitted.map(r => `
+            <div style="margin-bottom:6px;color:var(--teal)">
+              ✓ ${r.shipment_id}
+              <span style="color:var(--muted-soft);font-size:10px;margin-left:8px">${r.sap_document_id} · ${new Date(r.submitted_at).toLocaleTimeString()}</span>
+            </div>`).join('')}
+        </div>
+        <div style="margin-top:16px">
+          <button class="btn" onclick="location.assign('audit.html')">
+            <i class="ti ti-clock-history"></i> View Audit Trail
           </button>
         </div>
       </div>

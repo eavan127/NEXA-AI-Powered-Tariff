@@ -49,6 +49,14 @@ async function runModuleC(shipmentId) {
   return apiFetch(`/api/calculate-landed-cost/${shipmentId}`, 'POST')
 }
 
+ /* ── Module D — SAP Writeback ──────────────────────────────── */
+  async function submitShipmentToSAP(shipmentId) {
+    return apiFetch(`/api/shipments/${shipmentId}/submit-sap`, 'POST')
+  }
+  async function submitBatchToSAP(shipmentIds = []) {
+    return apiFetch('/api/submit-batch', 'POST', { shipment_ids: shipmentIds })
+  }
+
 /* ── Approve / Flag ───────────────────────────────────────────── */
 async function approveShipment(shipmentId) {
   return apiFetch(`/api/shipments/${shipmentId}/approve`, 'POST')
@@ -99,3 +107,9 @@ async function runSeed() {
   }
   return res.json()
 }
+
+/* ── SAP Submission ───────────────────────────────────────────── */
+async function submitBatchToSAP(shipmentIds = []) {
+  return apiFetch('/api/submit-batch', 'POST', { shipment_ids: shipmentIds })
+}
+
