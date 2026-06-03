@@ -99,3 +99,26 @@ async def fetch_shipment_from_sap(shipment_id:str) -> dict :
         print(f"SAP fetch failed for {shipment_id}:{e}")
         return MOCK_SHIPMENTS["SHIP001"]
         # if falled, return mocked shipments as fallback
+
+        
+async def submit_to_sap(shipment_id: str, payload: dict) -> dict:
+    """POST approved duty data back to SAP S/4HANA.
+    Returns {"sap_document_id": "...", "submitted_at": "..."}
+    """
+    if settings.SAP_MOCK:
+        import uuid, datetime
+        return {
+            "sap_document_id": f"SAP-{uuid.uuid4().hex[:8].upper()}",
+            "submitted_at": datetime.datetime.utcnow().isoformat() + "Z",
+            "status": "accepted"
+        }
+    # Real SAP OData call
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(
+            f"{settings.SAP_BASE_URL}/api/TariffSubmissions",
+            auth=(settings.SAP_USERNAME, settings.SAP_PASSWORD),
+            json=payload,
+            timeout=15
+        )
+        resp.raise_for_status()
+        return resp.json()
