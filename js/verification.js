@@ -239,15 +239,40 @@ function renderDetailPanel(s) {
   // Show locked state if already reviewed, otherwise enable actions
   const reviewed = s.status === 'approved' || s.status === 'flagged'
   if (reviewed) {
-    const label = s.status === 'approved'
-      ? '✓ Approved — no further action needed'
-      : '↑ Escalated — awaiting senior analyst'
-    setHtml('actionBar', `
-      <div style="flex:1;text-align:center;font-size:12px;color:var(--muted-soft);padding:4px 0">
-        <span style="font-weight:600;color:${statusColor(s.status)}">${label}</span>
-        &nbsp;·&nbsp;
-        <a href="audit.html" style="color:var(--primary);text-decoration:none">View audit trail →</a>
-      </div>`)
+    if (s.status === 'approved') {
+      setHtml('actionBar', `
+        <div style="display:flex;align-items:center;gap:10px;width:100%">
+          <div style="flex:1;font-size:12px;color:var(--muted-soft);padding:4px 0">
+            <span style="font-weight:600;color:${statusColor(s.status)}">✓ Approved — no further action needed</span>
+            &nbsp;·&nbsp;
+            <a href="audit.html" style="color:var(--primary);text-decoration:none">View audit trail →</a>
+          </div>
+          <button class="btn" onclick="window.open('http://localhost:8000/api/shipments/${s.sap_shipment_id}/compliance-pdf','_blank')"
+            style="flex-shrink:0;height:33px;display:flex;align-items:center;gap:6px;font-size:12px;padding:0 14px;border:1px solid var(--hairline)">
+            <i class="ti ti-file-download"></i> Compliance PDF
+          </button>
+        </div>`)
+    } else {
+      // Flagged — show resolve actions
+      setHtml('actionBar', `
+        <div style="display:flex;flex-direction:column;gap:8px;width:100%">
+          <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:#92400e;background:#fffbeb;border:1px solid #f59e0b;border-radius:6px;padding:8px 12px">
+            <i class="ti ti-alert-triangle" style="font-size:14px;flex-shrink:0"></i>
+            <span><strong>Escalated — awaiting senior analyst.</strong> Approve or override to unblock SAP writeback.</span>
+            <a href="audit.html" style="color:var(--primary);text-decoration:none;margin-left:auto;white-space:nowrap">View audit trail →</a>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-primary" id="btnResolveApprove" onclick="doResolveApprove()"
+              style="flex:1;justify-content:center;background:var(--teal);border-color:var(--teal)">
+              <i class="ti ti-check"></i> Approve as Senior
+            </button>
+            <button class="btn" id="btnResolveOverride" onclick="toggleResolveOverrideForm()"
+              style="flex:1;justify-content:center;background:rgba(59,130,246,.08);border-color:rgba(59,130,246,.3);color:#1d4ed8">
+              <i class="ti ti-edit"></i> Override HS Code
+            </button>
+          </div>
+        </div>`)
+    }
     $('actionBar').style.display = ''
   } else {
     setHtml('actionBar', `
