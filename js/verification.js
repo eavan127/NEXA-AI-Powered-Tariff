@@ -239,15 +239,34 @@ function renderDetailPanel(s) {
   // Show locked state if already reviewed, otherwise enable actions
   const reviewed = s.status === 'approved' || s.status === 'flagged'
   if (reviewed) {
-    const label = s.status === 'approved'
-      ? '✓ Approved — no further action needed'
-      : '↑ Escalated — awaiting senior analyst'
-    setHtml('actionBar', `
-      <div style="flex:1;text-align:center;font-size:12px;color:var(--muted-soft);padding:4px 0">
-        <span style="font-weight:600;color:${statusColor(s.status)}">${label}</span>
-        &nbsp;·&nbsp;
-        <a href="audit.html" style="color:var(--primary);text-decoration:none">View audit trail →</a>
-      </div>`)
+    if (s.status === 'approved') {
+      setHtml('actionBar', `
+        <div style="flex:1;text-align:center;font-size:12px;color:var(--muted-soft);padding:4px 0">
+          <span style="font-weight:600;color:${statusColor(s.status)}">✓ Approved — no further action needed</span>
+          &nbsp;·&nbsp;
+          <a href="audit.html" style="color:var(--primary);text-decoration:none">View audit trail →</a>
+        </div>`)
+    } else {
+      // Flagged/Escalated — Senior Analyst can resolve
+      setHtml('actionBar', `
+        <div style="display:flex;flex-direction:column;gap:8px;width:100%">
+          <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:#92400e;background:#fffbeb;border:1px solid #f59e0b;border-radius:6px;padding:8px 12px">
+            <i class="ti ti-alert-triangle" style="font-size:14px;flex-shrink:0"></i>
+            <span><strong>Escalated — awaiting senior analyst.</strong> Approve or override to unblock SAP writeback.</span>
+            <a href="audit.html" style="color:var(--primary);text-decoration:none;margin-left:auto;white-space:nowrap">View audit trail →</a>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-primary" id="btnResolveApprove" onclick="doResolveApprove()"
+              style="flex:1;justify-content:center;background:var(--teal);border-color:var(--teal)">
+              <i class="ti ti-check"></i> Approve as Senior
+            </button>
+            <button class="btn" id="btnResolveOverride" onclick="toggleResolveOverrideForm()"
+              style="flex:1;justify-content:center;background:rgba(59,130,246,.08);border-color:rgba(59,130,246,.3);color:#1d4ed8">
+              <i class="ti ti-edit"></i> Override HS Code
+            </button>
+          </div>
+        </div>`)
+    }
     $('actionBar').style.display = ''
   } else {
     setHtml('actionBar', `
@@ -714,6 +733,84 @@ async function submitEditForm() {
   } catch (e) {
     showToast('Override failed: ' + e.message, true)
     if (btn) { btn.disabled = false; btn.innerHTML = '<i class="ti ti-check"></i> Save Override' }
+  }
+}
+
+/* ── Resolve Escalation — Approve as Senior ──────────────────── */
+async function doResolveApprove() {
+  if (!currentId) return
+  const btn = $('btnResolveApprove')
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader-2 spin"></i> Approving…' }
+  try {
+    await approveShipment(currentId)
+    showToast(`✓ ${currentId} resolved and approved by Senior Analyst`)
+    await refreshAndAdvance(currentId, 'approved')
+  } catch (e) {
+    showToast('Approve failed: ' + e.message, true)
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="ti ti-check"></i> Approve as Senior' }
+  }
+}
+
+/* ── Resolve Escalation — Override HS Code ───────────────────── */
+function toggleResolveOverrideForm() {
+  const container = $('inlineFormContainer')
+  if (!container) return
+  if (container.innerHTML.includes('resolveOverrideForm')) {
+    container.innerHTML = ''
+    return
+  }
+
+  const currentHS = SHIPMENTS.find(s => s.sap_shipment_id === currentId)
+    ?.hs_classifications?.[0]?.final_hs_code || ''
+
+  container.innerHTML = `
+  <div class="inline-form" id="resolveOverrideForm">
+    <div style="font-size:12px;font-weight:600;color:var(--ink);margin-bottom:var(--sp-sm)">
+      <i class="ti ti-clipboard-check" style="color:var(--teal)"></i> Override HS Code &amp; Resolve
+    </div>
+    <div style="font-size:11px;color:var(--muted-soft);margin-bottom:var(--sp-sm)">
+      AI suggested: <span style="font-family:var(--mono);color:var(--primary)">${currentHS}</span>
+    </div>
+    <div class="field">
+      <label>Correct HS Code <span class="required">*</span></label>
+      <input type="text" id="resolveHSInput" placeholder="e.g. 8542.31" autocomplete="off">
+    </div>
+    <div class="field">
+      <label>Reason for override <span class="required">*</span></label>
+      <textarea id="resolveReasonInput" rows="3" placeholder="e.g. Confirmed classification per WCO binding ruling…"></textarea>
+    </div>
+    <div class="form-actions">
+      <button class="btn" onclick="$('inlineFormContainer').innerHTML=''">Cancel</button>
+      <button class="btn btn-primary" onclick="submitResolveOverrideForm()">
+        <i class="ti ti-check"></i> Save &amp; Unblock
+      </button>
+    </div>
+  </div>`
+
+  $('resolveHSInput')?.focus()
+}
+
+async function submitResolveOverrideForm() {
+  const hsCode = ($('resolveHSInput')?.value || '').trim()
+  const reason = ($('resolveReasonInput')?.value || '').trim()
+
+  let valid = true
+  if (!hsCode) { $('resolveHSInput')?.classList.add('field-error');    valid = false }
+  else           $('resolveHSInput')?.classList.remove('field-error')
+  if (!reason) { $('resolveReasonInput')?.classList.add('field-error'); valid = false }
+  else           $('resolveReasonInput')?.classList.remove('field-error')
+  if (!valid) return
+
+  const btn = document.querySelector('#resolveOverrideForm .btn-primary')
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader-2 spin"></i> Saving…' }
+  try {
+    await overrideHSCode(currentId, hsCode, reason)
+    showToast(`✓ ${currentId} overridden to ${hsCode} — escalation resolved`)
+    $('inlineFormContainer').innerHTML = ''
+    await refreshAndAdvance(currentId, 'approved')
+  } catch (e) {
+    showToast('Override failed: ' + e.message, true)
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="ti ti-check"></i> Save & Unblock' }
   }
 }
 
