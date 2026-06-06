@@ -155,7 +155,36 @@ CREATE TABLE IF NOT EXISTS config (
     value  TEXT
 );
 
--- indexes to speed up common queries 
+-- pipeline_logs — ingestion event audit trail (hash checks, parse results)
+CREATE TABLE IF NOT EXISTS pipeline_logs (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    event_type  TEXT NOT NULL,
+    source_url  TEXT,
+    description TEXT,
+    detail      JSONB,
+    created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ── Schema migrations ────────────────────────────────────────────
+-- fta_rates: rate staging + PDF provenance columns
+ALTER TABLE fta_rates ADD COLUMN IF NOT EXISTS rate_staging      JSONB;
+ALTER TABLE fta_rates ADD COLUMN IF NOT EXISTS final_rate        NUMERIC;
+ALTER TABLE fta_rates ADD COLUMN IF NOT EXISTS final_year        INTEGER;
+ALTER TABLE fta_rates ADD COLUMN IF NOT EXISTS staging_category  TEXT;
+ALTER TABLE fta_rates ADD COLUMN IF NOT EXISTS needs_review      BOOLEAN DEFAULT false;
+ALTER TABLE fta_rates ADD COLUMN IF NOT EXISTS last_verified_at  TIMESTAMPTZ;
+ALTER TABLE fta_rates ADD COLUMN IF NOT EXISTS pdf_source_url    TEXT;
+ALTER TABLE fta_rates ADD COLUMN IF NOT EXISTS pdf_page_number   INTEGER;
+
+-- fta_coverage: EIF date, metadata, scraper tracking
+ALTER TABLE fta_coverage ADD COLUMN IF NOT EXISTS source_url      TEXT;
+ALTER TABLE fta_coverage ADD COLUMN IF NOT EXISTS in_force_date   DATE;
+ALTER TABLE fta_coverage ADD COLUMN IF NOT EXISTS description      TEXT;
+ALTER TABLE fta_coverage ADD COLUMN IF NOT EXISTS roo_summary      TEXT;
+ALTER TABLE fta_coverage ADD COLUMN IF NOT EXISTS total_hs_codes   INTEGER;
+ALTER TABLE fta_coverage ADD COLUMN IF NOT EXISTS last_scraped_at  TIMESTAMPTZ;
+
+-- indexes to speed up common queries
 -- ivfflate a special algorithm for vector math (similarity search) = faster retrieval
 CREATE INDEX ON hs_reference USING ivfflat(embedding vector_cosine_ops);
 --cosine measure the angle between two vectors ( a math to measure similarity )

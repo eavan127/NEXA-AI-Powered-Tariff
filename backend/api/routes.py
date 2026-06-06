@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Request
-from api.schemas import ProcessBatchRequest, ApproveRequest, RejectRequest, OverrideHSRequest
+from api.schemas import ProcessBatchRequest, ApproveRequest, RejectRequest, OverrideHSRequest, DryRunPdfRequest
 from classifier.hs_classifier import classify_hs_code
 
 router = APIRouter()
@@ -316,6 +316,121 @@ async def escalate_shipment(shipment_id: str, request: Request):
         }).execute()
 
         return {"status": "ok", "message": f"Escalated to {assignee}"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ── Data Ingestion Admin Routes ───────────────────────────────────
+# These let you trigger the real data pipeline manually from the UI
+# The same jobs also run on schedule via scheduler.py
+
+@router.get("/api/admin/ingestion-status")
+async def get_ingestion_status(request: Request):
+    """Show when each job last ran and what the DB contains."""
+    try:
+        supabase = request.app.state.supabase
+
+        fta_rates_count   = len(supabase.table("fta_rates").select("id").execute().data)
+        fta_coverage_count = len(supabase.table("fta_coverage").select("id").execute().data)
+
+        # Last gazette alert (most recent PDF processed)
+        gazette_last = supabase.table("gazette_alerts") \
+            .select("gazette_title,processed_at,is_tariff_related") \
+            .order("processed_at", desc=True).limit(5).execute()
+
+        # Check scheduler jobs if available
+        scheduler = getattr(request.app.state, "scheduler", None)
+        jobs = []
+        if scheduler:
+            for job in scheduler.get_jobs():
+                next_run = job.next_run_time
+                jobs.append({
+                    "id":       job.id,
+                    "name":     job.name,
+                    "next_run": str(next_run) if next_run else "paused"
+                })
+
+        return {
+            "status": "ok",
+            "db_counts": {
+                "fta_rates":    fta_rates_count,
+                "fta_coverage": fta_coverage_count,
+            },
+            "recent_gazette_pdfs": gazette_last.data,
+            "scheduled_jobs": jobs
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/api/admin/run-ingestion/{job}")
+async def run_ingestion_job(job: str, request: Request):
+    """
+    Manually trigger one of the ingestion jobs:
+      - gazette   → download & parse latest PDFs from Malaysian Gazette RSS
+      - jkdm      → scrape real FTA rates from ezhs.customs.gov.my (needs Playwright)
+      - miti      → scrape MITI FTA page list
+      - wto       → sync MFN tariff rates from WTO API
+      - all       → run gazette + wto (safe, no Playwright required)
+    """
+    allowed = {"gazette", "jkdm", "miti", "wto", "all"}
+    if job not in allowed:
+        raise HTTPException(status_code=400, detail=f"Unknown job '{job}'. Choose: {allowed}")
+
+    results = {}
+    try:
+        if job in ("gazette", "all"):
+            from ingestion.gazette_monitor import monitor_gazette_rss
+            results["gazette"] = await monitor_gazette_rss()
+
+        if job in ("wto", "all"):
+            from ingestion.tariff_sync import sync_tariff_rates
+            results["wto"] = await sync_tariff_rates()
+
+        if job in ("jkdm",):
+            from ingestion.fta_scraper import scrape_jkdm_rates
+            results["jkdm"] = await scrape_jkdm_rates()
+
+        if job in ("miti",):
+            from ingestion.fta_scraper import scrape_miti_fta_rates
+            results["miti"] = await scrape_miti_fta_rates()
+
+        return {"status": "ok", "job": job, "results": results}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/api/admin/dry-run-pdf")
+async def dry_run_pdf(body: DryRunPdfRequest):
+    """
+    Debug endpoint: fetch a MITI PDF and print the first 10 rows of each table
+    (pages 1-3 only). Does NOT write to the database. Check server terminal for output.
+    """
+    try:
+        import httpx
+        from ingestion.pdf_extractor import extract_fta_rates_from_pdf
+
+        content = b""
+        async with httpx.AsyncClient(timeout=60, verify=False) as client:
+            resp = await client.get(body.pdf_url)
+            if resp.status_code != 200:
+                raise HTTPException(
+                    status_code=502,
+                    detail=f"PDF fetch failed: HTTP {resp.status_code}"
+                )
+            content = resp.content
+
+        extract_fta_rates_from_pdf(content, body.fta_name, body.origin_country, body.pdf_url, dry_run=True)
+
+        return {
+            "status": "ok",
+            "message": "Dry run complete — check server terminal for column headers and sample rows",
+            "pdf_url": body.pdf_url,
+            "fta_name": body.fta_name,
+            "origin_country": body.origin_country,
+        }
     except HTTPException:
         raise
     except Exception as e:

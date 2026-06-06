@@ -30,7 +30,7 @@ async def sync_tariff_rates() -> dict:
     result = {"updated": 0, "skipped": 0, "errors": 0}
 
     try:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(verify=False) as client:
             response = await client.get(
                 "https://tariffdata.wto.org/api/v1/tariffs",
                 params={"reporter": "MYS", "year": "2024"},

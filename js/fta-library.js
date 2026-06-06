@@ -234,6 +234,40 @@ async function searchRates() {
       const save  = r < mfn ? `Save ${mfn - r}%` : r === mfn ? 'Same as MFN' : 'Higher'
       const saveColor = r < mfn ? 'var(--teal)' : 'var(--muted-soft)'
 
+      // ── Rate staging timeline visual ──────────────────────────
+      let stagingHtml = ''
+      const staging = row.rate_staging
+      if (staging && typeof staging === 'object') {
+        const currentYear = new Date().getFullYear()
+        const nextYear    = currentYear + 1
+        const curRate     = staging[String(currentYear)]
+        const nxtRate     = staging[String(nextYear)]
+        const cat         = row.staging_category ? `[${row.staging_category}] ` : ''
+
+        if (curRate !== undefined || nxtRate !== undefined) {
+          const parts = []
+          if (curRate !== undefined)
+            parts.push(`${currentYear}: <strong>${curRate}%</strong>`)
+          if (nxtRate !== undefined) {
+            const arrow = nxtRate < (curRate ?? r) ? ' ↓' : ''
+            parts.push(
+              `${nextYear}: <strong style="color:var(--teal)">${nxtRate}%${arrow}</strong>`
+            )
+          }
+          if (row.final_year && row.final_rate === 0 && row.final_year > nextYear)
+            parts.push(`→ 0% by ${row.final_year}`)
+
+          const updatesNote = (nxtRate !== undefined && nxtRate < (curRate ?? r))
+            ? '<span style="color:var(--teal);font-size:10px"> ← updates Jan 1</span>'
+            : ''
+
+          stagingHtml = `
+            <div style="margin-top:4px;font-size:10.5px;color:var(--muted-soft);font-family:var(--mono);line-height:1.4">
+              ${cat}${parts.join(' → ')}${updatesNote}
+            </div>`
+        }
+      }
+
       return `
       <div class="rate-result-row fade-in">
         <span>
@@ -241,7 +275,10 @@ async function searchRates() {
         </span>
         <span style="font-family:var(--mono);font-size:12px;color:var(--ink)">${row.hs_code}</span>
         <span style="font-size:12px;color:var(--muted)">${row.origin_country}</span>
-        <span style="font-family:var(--mono);font-size:13px;font-weight:600;color:${color}">${r}%</span>
+        <span>
+          <span style="font-family:var(--mono);font-size:13px;font-weight:600;color:${color}">${r}%</span>
+          ${stagingHtml}
+        </span>
         <span>
           <span style="font-size:11.5px;color:${saveColor};font-weight:500">${save}</span>
           ${r < mfn

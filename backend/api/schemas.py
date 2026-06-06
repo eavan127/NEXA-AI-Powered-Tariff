@@ -18,3 +18,8 @@ class OverrideHSRequest(BaseModel):
     analyst_id: str
     correct_hs_code: str
     reason: str
+
+class DryRunPdfRequest(BaseModel):
+    pdf_url: str
+    fta_name: str = "ATIGA"
+    origin_country: str = "Unknown"

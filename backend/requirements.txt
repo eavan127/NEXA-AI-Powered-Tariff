@@ -4,6 +4,7 @@ supabase
 pydantic-settings
 httpx
 pdfplumber
+beautifulsoup4
 playwright
 feedparser
 apscheduler
