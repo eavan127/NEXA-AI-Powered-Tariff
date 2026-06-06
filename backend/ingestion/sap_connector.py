@@ -99,3 +99,54 @@ async def fetch_shipment_from_sap(shipment_id:str) -> dict :
         print(f"SAP fetch failed for {shipment_id}:{e}")
         return MOCK_SHIPMENTS["SHIP001"]
         # if falled, return mocked shipments as fallback
+
+
+
+async def write_duty_to_sap(shipment_id: str, hs_code: str, duty_amount: float, analyst_id: str = "SARAH_LIM") -> dict:
+    """
+    Writes approved duty figures back to SAP S/4HANA.
+    In mock mode: simulates the writeback and returns success.
+    In real mode: sends POST to SAP OData API.
+    """
+    if settings.SAP_MOCK:
+        # Simulate SAP writeback — no real connection
+        print(f"[SAP MOCK] Writeback → {shipment_id} | HS: {hs_code} | Duty: {duty_amount} | Analyst: {analyst_id}")
+        return {
+            "success": True,
+            "shipment_id": shipment_id,
+            "hs_code": hs_code,
+            "duty_amount": duty_amount,
+            "sap_document_number": f"SAP-{shipment_id}-MOCK",
+            "message": "Mock SAP writeback successful"
+        }
+
+    # Real SAP OData writeback (only runs when SAP_MOCK=False)
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{settings.SAP_BASE_URL}/api/duty-writeback",
+                auth=(settings.SAP_USERNAME, settings.SAP_PASSWORD),
+                json={
+                    "ShipmentID": shipment_id,
+                    "HSCode": hs_code,
+                    "DutyAmount": duty_amount,
+                    "AnalystID": analyst_id,
+                    "Source": "NEXA_AI"
+                },
+                timeout=10
+            )
+            response.raise_for_status()
+            data = response.json()
+            return {
+                "success": True,
+                "shipment_id": shipment_id,
+                "sap_document_number": data.get("DocumentNumber", ""),
+                "message": "SAP writeback successful"
+            }
+    except Exception as e:
+        print(f"SAP writeback failed for {shipment_id}: {e}")
+        return {
+            "success": False,
+            "shipment_id": shipment_id,
+            "message": str(e)
+        }

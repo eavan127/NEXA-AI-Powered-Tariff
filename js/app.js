@@ -162,6 +162,21 @@ function renderShipmentResult(s, auditTrail) {
     const el = $(id); if (el) el.setAttribute('data-id', s.sap_shipment_id)
   })
 
+  // ── Show/hide buttons based on status ──
+  const isEscalated     = s.status === 'flagged'
+  const canDownloadPDF  = s.status === 'approved' || s.status === 'submitted'
+  const btnResolve      = $('btnResolve')
+  const btnEscalate     = $('btnEscalate')
+  const btnApprove      = $('btnApprove')
+  const btnPDF          = $('btnDownloadPDF')
+  if (btnResolve)  btnResolve.style.display  = isEscalated    ? 'flex' : 'none'
+  if (btnEscalate) btnEscalate.style.display = isEscalated    ? 'none' : 'flex'
+  if (btnApprove)  btnApprove.style.display  = isEscalated    ? 'none' : 'flex'
+  if (btnPDF) {
+    btnPDF.style.display = canDownloadPDF ? 'flex' : 'none'
+    btnPDF.onclick = () => window.open(`http://localhost:8000/api/shipments/${s.sap_shipment_id}/compliance-pdf`, '_blank')
+  }
+
   // ── Module A Card ──
   renderModuleACard(cls)
 
@@ -672,7 +687,36 @@ function showToast(msg, isError = false) {
 
 /* ─── Approve / Submit ───────────────────────────────────────────── */
 function approveItem() { openModal('approvedModal') }
-function submitBatch()  { closeModal('batchModal'); showToast('✓ Batch submitted to SAP S/4HANA') }
+
+async function submitBatch() {
+  const approvedIds = SHIPMENTS
+    .filter(s => s.status === 'approved')
+    .map(s => s.sap_shipment_id)
+
+  if (!approvedIds.length) {
+    showToast('No approved shipments to submit', true)
+    return
+  }
+
+  const btn = $('btnConfirmBatch')
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader-2 spin"></i> Submitting…' }
+
+  try {
+    const r = await apiFetch('/api/shipments/submit-batch', 'POST', { shipment_ids: approvedIds })
+    if (r.status === 'ok') {
+      closeModal('batchModal')
+      showToast(`✓ ${approvedIds.length} shipment(s) written to SAP S/4HANA`)
+      await loadShipments()
+      await loadSummary()
+    } else {
+      showToast('Submission failed: ' + (r.detail || 'unknown'), true)
+    }
+  } catch(e) {
+    showToast('SAP submission error: ' + e.message, true)
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="ti ti-check"></i> Confirm & Submit' }
+  }
+}
 
 /* ─── Modals ─────────────────────────────────────────────────────── */
 function openModal(id)  { $(id)?.classList.add('open') }

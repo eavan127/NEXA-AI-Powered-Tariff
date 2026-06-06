@@ -532,11 +532,17 @@
               <button class="btn" id="btnRunC" onclick="triggerC()">
                 <i class="ti ti-calculator"></i> Run Module C
               </button>
-              <button class="act-btn act-approve" style="height:33px;border-radius:var(--r-md);font-size:12.5px;font-weight:500;display:flex;align-items:center;justify-content:center;gap:5px;padding:0 12px" onclick="openModal('approvedModal')">
+              <button class="act-btn act-approve" id="btnApprove" style="height:33px;border-radius:var(--r-md);font-size:12.5px;font-weight:500;display:flex;align-items:center;justify-content:center;gap:5px;padding:0 12px" onclick="openModal('approvedModal')">
                 <i class="ti ti-check" style="font-size:13px"></i> Approve
               </button>
-              <button class="act-btn act-escalate" style="height:33px;border-radius:var(--r-md);font-size:12.5px;font-weight:500;display:flex;align-items:center;justify-content:center;gap:5px;padding:0 12px" onclick="openModal('escalateModal')">
+              <button class="act-btn act-escalate" id="btnEscalate" style="height:33px;border-radius:var(--r-md);font-size:12.5px;font-weight:500;display:flex;align-items:center;justify-content:center;gap:5px;padding:0 12px" onclick="openModal('escalateModal')">
                 <i class="ti ti-arrow-up-right" style="font-size:13px"></i> Escalate
+              </button>
+              <button class="btn" id="btnDownloadPDF" style="height:33px;border-radius:var(--r-md);font-size:12.5px;font-weight:500;display:none;align-items:center;justify-content:center;gap:5px;padding:0 12px;border:1px solid var(--hairline)">
+                <i class="ti ti-file-download" style="font-size:13px"></i> Compliance PDF
+              </button>
+              <button class="act-btn" id="btnResolve" style="height:33px;border-radius:var(--r-md);font-size:12.5px;font-weight:500;display:none;align-items:center;justify-content:center;gap:5px;padding:0 12px;background:var(--amber);color:#fff;border:none;cursor:pointer" onclick="openModal('resolveModal')">
+                <i class="ti ti-clipboard-check" style="font-size:13px"></i> Resolve Escalation
               </button>
             </div>
           </div>
@@ -795,7 +801,7 @@
     </div>
     <div class="modal-foot">
       <button class="btn" onclick="closeModal('batchModal')">Cancel</button>
-      <button class="btn btn-primary" onclick="submitBatch()">
+      <button class="btn btn-primary" id="btnConfirmBatch" onclick="submitBatch()">
         <i class="ti ti-check"></i> Confirm &amp; Submit
       </button>
     </div>
