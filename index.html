@@ -538,9 +538,6 @@
               <button class="act-btn act-escalate" id="btnEscalate" style="height:33px;border-radius:var(--r-md);font-size:12.5px;font-weight:500;display:flex;align-items:center;justify-content:center;gap:5px;padding:0 12px" onclick="openModal('escalateModal')">
                 <i class="ti ti-arrow-up-right" style="font-size:13px"></i> Escalate
               </button>
-              <button class="btn" id="btnDownloadPDF" style="height:33px;border-radius:var(--r-md);font-size:12.5px;font-weight:500;display:none;align-items:center;justify-content:center;gap:5px;padding:0 12px;border:1px solid var(--hairline)">
-                <i class="ti ti-file-download" style="font-size:13px"></i> Compliance PDF
-              </button>
               <button class="act-btn" id="btnResolve" style="height:33px;border-radius:var(--r-md);font-size:12.5px;font-weight:500;display:none;align-items:center;justify-content:center;gap:5px;padding:0 12px;background:var(--amber);color:#fff;border:none;cursor:pointer" onclick="openModal('resolveModal')">
                 <i class="ti ti-clipboard-check" style="font-size:13px"></i> Resolve Escalation
               </button>
@@ -757,19 +754,58 @@
     </div>
     <div class="modal-body">
       <div class="field"><label>Assign to</label>
-        <select>
+        <select id="escalateAssignee">
           <option>James Tan — Senior Trade Compliance Analyst</option>
           <option>Priya Nair — Compliance Manager</option>
         </select>
       </div>
       <div class="field"><label>Notes</label>
-        <textarea rows="3" placeholder="Describe the issue requiring escalation…"></textarea>
+        <textarea id="escalateNotes" rows="3" placeholder="Describe the issue requiring escalation…"></textarea>
       </div>
     </div>
     <div class="modal-foot">
       <button class="btn" onclick="closeModal('escalateModal')">Cancel</button>
-      <button class="btn btn-amber" onclick="closeModal('escalateModal')">
+      <button class="btn btn-amber" id="escalateSubmitBtn" onclick="submitEscalation()">
         <i class="ti ti-send"></i> Send to Senior
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Resolve Escalation Modal ──────────────────────────────── -->
+<div class="overlay" id="resolveModal">
+  <div class="modal">
+    <div class="modal-head">
+      <i class="ti ti-clipboard-check" style="color:var(--teal);font-size:18px"></i>
+      <span class="modal-title">Resolve Escalation</span>
+      <button class="modal-close" onclick="closeModal('resolveModal')"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="modal-body">
+      <div style="background:var(--surface-amber,#fffbeb);border:1px solid var(--amber);border-radius:var(--r-md);padding:10px 14px;font-size:12.5px;color:var(--amber-dark,#92400e);margin-bottom:12px">
+        <i class="ti ti-alert-triangle"></i> This shipment is escalated and <strong>on hold</strong>. Approving or overriding here will unblock it for SAP writeback.
+      </div>
+      <div class="field"><label>Action</label>
+        <select id="resolveAction" onchange="toggleResolveOverride()">
+          <option value="approve">Approve AI recommendation as-is</option>
+          <option value="override">Override with manual HS code</option>
+        </select>
+      </div>
+      <div id="resolveOverrideFields" style="display:none">
+        <div class="field"><label>Manual HS Code</label>
+          <input id="resolveHsCode" type="text" placeholder="e.g. 8534.00" style="width:100%;padding:7px 10px;border:1px solid var(--hairline);border-radius:var(--r-sm);font-size:13px"/>
+        </div>
+        <div class="field"><label>Reason for Override</label>
+          <textarea id="resolveReason" rows="3" placeholder="Explain why the AI recommendation was incorrect…"></textarea>
+        </div>
+      </div>
+      <div class="field"><label>Senior Analyst Note</label>
+        <textarea id="resolveNote" rows="2" placeholder="Optional note for the audit trail…"></textarea>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeModal('resolveModal')">Cancel</button>
+      <button class="btn btn-primary" id="resolveSubmitBtn" onclick="submitResolve()">
+        <i class="ti ti-check"></i> Confirm &amp; Unblock
       </button>
     </div>
   </div>

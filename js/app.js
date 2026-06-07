@@ -162,20 +162,14 @@ function renderShipmentResult(s, auditTrail) {
     const el = $(id); if (el) el.setAttribute('data-id', s.sap_shipment_id)
   })
 
-  // ── Show/hide buttons based on status ──
-  const isEscalated     = s.status === 'flagged'
-  const canDownloadPDF  = s.status === 'approved' || s.status === 'submitted'
-  const btnResolve      = $('btnResolve')
-  const btnEscalate     = $('btnEscalate')
-  const btnApprove      = $('btnApprove')
-  const btnPDF          = $('btnDownloadPDF')
-  if (btnResolve)  btnResolve.style.display  = isEscalated    ? 'flex' : 'none'
-  if (btnEscalate) btnEscalate.style.display = isEscalated    ? 'none' : 'flex'
-  if (btnApprove)  btnApprove.style.display  = isEscalated    ? 'none' : 'flex'
-  if (btnPDF) {
-    btnPDF.style.display = canDownloadPDF ? 'flex' : 'none'
-    btnPDF.onclick = () => window.open(`http://localhost:8000/api/shipments/${s.sap_shipment_id}/compliance-pdf`, '_blank')
-  }
+  // ── Show/hide Resolve button based on escalation status ──
+  const isEscalated = s.status === 'flagged'
+  const btnResolve  = $('btnResolve')
+  const btnEscalate = $('btnEscalate')
+  const btnApprove  = $('btnApprove')
+  if (btnResolve)  btnResolve.style.display  = isEscalated ? 'flex'   : 'none'
+  if (btnEscalate) btnEscalate.style.display  = isEscalated ? 'none'   : 'flex'
+  if (btnApprove)  btnApprove.style.display   = isEscalated ? 'none'   : 'flex'
 
   // ── Module A Card ──
   renderModuleACard(cls)
@@ -715,6 +709,78 @@ async function submitBatch() {
     showToast('SAP submission error: ' + e.message, true)
   } finally {
     if (btn) { btn.disabled = false; btn.innerHTML = '<i class="ti ti-check"></i> Confirm & Submit' }
+  }
+}
+
+/* ─── Escalate ───────────────────────────────────────────────────── */
+async function submitEscalation() {
+  const id = getActiveId()
+  if (!id) { showToast('No shipment selected', true); return }
+
+  const assignee = $('escalateAssignee')?.value?.trim() || 'Senior Analyst'
+  const notes    = $('escalateNotes')?.value?.trim()    || ''
+  if (!notes) { showToast('Please enter escalation notes', true); return }
+
+  const btn = $('escalateSubmitBtn')
+  btn.disabled = true
+  btn.innerHTML = '<i class="ti ti-loader-2 spin"></i> Sending…'
+
+  try {
+    const r = await escalateShipment(id, assignee, notes)
+    if (r.status === 'ok') {
+      closeModal('escalateModal')
+      $('escalateNotes').value = ''
+      showToast(`⬆ ${id} escalated to ${assignee}`)
+      await reloadCurrentShipment(id)
+    } else {
+      showToast('Escalation failed: ' + (r.detail || 'unknown'), true)
+    }
+  } catch(e) { showToast('Escalation error: ' + e.message, true) }
+  finally {
+    btn.disabled = false
+    btn.innerHTML = '<i class="ti ti-send"></i> Send to Senior'
+  }
+}
+
+/* ─── Resolve Escalation ─────────────────────────────────────────── */
+function toggleResolveOverride() {
+  const action = $('resolveAction')?.value
+  const fields = $('resolveOverrideFields')
+  if (fields) fields.style.display = action === 'override' ? 'block' : 'none'
+}
+
+async function submitResolve() {
+  const id = getActiveId()
+  if (!id) { showToast('No shipment selected', true); return }
+
+  const action = $('resolveAction')?.value
+  const note   = $('resolveNote')?.value?.trim() || ''
+  const btn    = $('resolveSubmitBtn')
+
+  btn.disabled = true
+  btn.innerHTML = '<i class="ti ti-loader-2 spin"></i> Processing…'
+
+  try {
+    if (action === 'override') {
+      const hsCode = $('resolveHsCode')?.value?.trim()
+      const reason = $('resolveReason')?.value?.trim()
+      if (!hsCode) { showToast('Please enter the manual HS code', true); btn.disabled=false; btn.innerHTML='<i class="ti ti-check"></i> Confirm & Unblock'; return }
+      if (!reason) { showToast('Please enter a reason for the override', true); btn.disabled=false; btn.innerHTML='<i class="ti ti-check"></i> Confirm & Unblock'; return }
+      await overrideHSCode(id, hsCode, reason + (note ? ` | Senior note: ${note}` : ''))
+      showToast(`✏ ${id} overridden to ${hsCode} and approved`)
+    } else {
+      await approveShipment(id)
+      showToast(`✓ ${id} resolved and approved by Senior Analyst`)
+    }
+    closeModal('resolveModal')
+    $('resolveNote').value = ''
+    $('resolveHsCode') && ($('resolveHsCode').value = '')
+    $('resolveReason') && ($('resolveReason').value = '')
+    await reloadCurrentShipment(id)
+  } catch(e) { showToast('Resolve error: ' + e.message, true) }
+  finally {
+    btn.disabled = false
+    btn.innerHTML = '<i class="ti ti-check"></i> Confirm & Unblock'
   }
 }
 

@@ -625,3 +625,40 @@ async def dry_run_pdf(body: DryRunPdfRequest):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+    # Single shipment submit
+@router.post("/api/shipments/{shipment_id}/submit-sap")
+async def submit_shipment_sap(shipment_id: str, request: Request):
+    try:
+        from calculator.sap_submitter import submit_shipment_to_sap
+        supabase = request.app.state.supabase
+        result = await submit_shipment_to_sap(shipment_id, supabase)
+        if "error" in result:
+            raise HTTPException(status_code=400, detail=result["error"])
+        return {"status": "ok", "data": result}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# Batch submit (all approved)
+@router.post("/api/submit-batch")
+async def submit_batch_sap(request: Request):
+    try:
+        from calculator.sap_submitter import submit_batch_to_sap
+        supabase = request.app.state.supabase
+        body = await request.json()
+        ids  = body.get("shipment_ids") or []   # [] = submit all approved
+        if not ids:
+            res = supabase.table("shipments").select("sap_shipment_id") \
+                .eq("status", "approved").execute()
+            ids = [r["sap_shipment_id"] for r in res.data]
+        if not ids:
+            raise HTTPException(status_code=400, detail="No approved shipments to submit")
+        result = await submit_batch_to_sap(ids, supabase)
+        return {"status": "ok", "data": result}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
