@@ -203,7 +203,7 @@ async function doRunA(id, btn) {
   const orig = btn.innerHTML
   btn.disabled = true
   btn.innerHTML = '<i class="ti ti-loader-2 spin"></i>'
-  showToast(`⏳ Module A for ${id}… this takes ~30s (llama3.2)`)
+  showToast(`⏳ Module A for ${id}… this takes ~30s (qwen2.5:1.5b)`)
   try {
     const r = await runModuleA(id)
     if (r.status === 'ok') {

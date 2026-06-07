@@ -4,6 +4,7 @@ supabase
 pydantic-settings
 httpx
 pdfplumber
+beautifulsoup4
 playwright
 feedparser
 apscheduler
@@ -11,3 +12,5 @@ python-multipart
 python-dotenv
 asyncpg
 psycopg2-binary
+reportlab
+openpyxl

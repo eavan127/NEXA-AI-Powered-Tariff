@@ -11,8 +11,9 @@ class Settings(BaseSettings): #creating own class name and inherit from base set
     SAP_PASSWORD: str = ""
     E2OPEN_BASE_URL: str = ""
     E2OPEN_API_KEY: str = ""
-    SAP_MOCK: bool = True 
-    E2OPEN_MOCK: bool = True 
+    SAP_MOCK: bool = True
+    E2OPEN_MOCK: bool = True
+    GAZETTE_ENABLED: bool = False
     SUPERFEEDR_TOKEN : str = ""
     GAZETTE_RSS_URL: str = "https://lom.agc.gov.my/index.php"
     MITI_FTA_URL: str = "https://fta.miti.gov.my/"

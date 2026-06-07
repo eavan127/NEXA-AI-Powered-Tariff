@@ -151,7 +151,7 @@
   min-width: 160px;
 }
 
-/* ── Analysis grid ──────────────────────────────────── */
+/* Analysis grid  */
 .analysis-grid {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
@@ -553,7 +553,7 @@
                 <div class="mod-badge mod-badge-a">A</div>
                 <div style="flex:1">
                   <div class="mod-title">HS Classification</div>
-                  <div class="mod-sub">AI · nomic-embed-text + llama3.2</div>
+                  <div class="mod-sub">AI · nomic-embed-text + qwen2.5:1.5b</div>
                 </div>
                 <span class="mod-status-badge" id="modABadge"
                   style="background:var(--surface-cream);color:var(--muted)">Not run</span>
@@ -837,7 +837,7 @@
     </div>
     <div class="modal-foot">
       <button class="btn" onclick="closeModal('batchModal')">Cancel</button>
-      <button class="btn btn-primary" onclick="submitBatch()">
+      <button class="btn btn-primary" id="btnConfirmBatch" onclick="submitBatch()">
         <i class="ti ti-check"></i> Confirm &amp; Submit
       </button>
     </div>

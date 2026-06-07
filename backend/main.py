@@ -1,7 +1,12 @@
-import os
 import sys
-sys.stdout.reconfigure(encoding='utf-8')
-sys.stderr.reconfigure(encoding='utf-8')
+import asyncio
+
+# Must be set before any other imports — Playwright needs ProactorEventLoop
+# on Windows to spawn browser subprocesses inside uvicorn's event loop
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+
+import os
 from contextlib import asynccontextmanager
 # write startup and shutdown events
 from fastapi import FastAPI
@@ -80,6 +85,11 @@ async def health_check():
     }
 
 app.include_router(router)
+
+# Mount static files last so /docs and /redoc are not overridden
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "..")
-app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="static")
+try:
+    app.mount("/app", StaticFiles(directory=STATIC_DIR, html=True), name="static")
+except Exception:
+    pass
 
