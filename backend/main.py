@@ -85,6 +85,11 @@ async def health_check():
     }
 
 app.include_router(router)
+
+# Mount static files last so /docs and /redoc are not overridden
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "..")
-app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="static")
+try:
+    app.mount("/app", StaticFiles(directory=STATIC_DIR, html=True), name="static")
+except Exception:
+    pass
 

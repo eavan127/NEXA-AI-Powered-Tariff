@@ -201,7 +201,7 @@ function renderModuleACard(cls) {
         <i class="ti ti-brain" style="font-size:32px;display:block;margin-bottom:8px;color:var(--hairline)"></i>
         <strong style="color:var(--ink);font-size:13px">Module A not run yet</strong><br>
         Click <em>Run Module A</em> below.<br>
-        <span style="font-size:11px">Uses: nomic-embed-text → pgvector → llama3.2</span>
+        <span style="font-size:11px">Uses: nomic-embed-text → pgvector → qwen2.5:1.5b</span>
       </div>`)
     return
   }
@@ -256,7 +256,7 @@ function renderModuleACard(cls) {
     </button>
     <div class="expand-body" id="reasonExpand">
       <div style="padding:10px;background:var(--surface-soft);border-radius:var(--r-md);font-size:11.5px;line-height:1.7;color:var(--muted-soft);margin-bottom:10px">
-        <strong style="color:var(--ink);display:block;margin-bottom:4px">llama3.2 reasoning:</strong>
+        <strong style="color:var(--ink);display:block;margin-bottom:4px">qwen2.5:1.5b reasoning:</strong>
         ${cls.reasoning_text || '—'}
       </div>
       ${ragHtml ? `<div style="margin-top:8px"><div style="font-size:10.5px;font-weight:500;color:var(--muted-soft);margin-bottom:4px">pgvector similarity matches:</div>${ragHtml}</div>` : ''}
@@ -494,7 +494,7 @@ async function triggerB() {
 }
 
 async function runSingleA(shipmentId) {
-  showToast(`⏳ Module A running for ${shipmentId}… (llama3.2, ~30s)`)
+  showToast(`⏳ Module A running for ${shipmentId}… (qwen2.5:1.5b, ~30s)`)
   const btns = ['btnRunA','btnRunA2'].map(i=>$(i)).filter(Boolean)
   btns.forEach(b => { b.disabled = true; b.innerHTML = '<i class="ti ti-loader-2 spin"></i> Running…' })
   try {

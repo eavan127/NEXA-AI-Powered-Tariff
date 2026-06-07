@@ -97,7 +97,7 @@ def search_hs_reference(embedding: list, supabase: Client) -> list:
     return top_3
 
 # ─────────────────────────────────────────
-# STEP 4: Ask llama3.2 to pick best HS code
+# STEP 4: Ask qwen2.5:1.5b to pick best HS code
 # ─────────────────────────────────────────
 def ask_llama_for_classification(
     product_description: str,
@@ -148,7 +148,7 @@ RESPOND IN THIS EXACT JSON FORMAT (no other text):
     response = httpx.post(
         "http://localhost:11434/api/generate",
         json={
-            "model": "llama3.2:latest",
+            "model": "qwen2.5:1.5b",
             "prompt": prompt,
             "stream": False
         },

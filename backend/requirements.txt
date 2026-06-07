@@ -13,3 +13,4 @@ python-dotenv
 asyncpg
 psycopg2-binary
 reportlab
+openpyxl

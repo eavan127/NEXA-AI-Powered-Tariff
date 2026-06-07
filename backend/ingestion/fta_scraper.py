@@ -10,50 +10,59 @@ from ingestion.change_detector import has_source_changed, store_source_hash
 from ingestion.pdf_extractor import extract_fta_rates_from_pdf
 
 # ── JKDM ─────────────────────────────────────────────────────────
-HS_CODES_TO_SCRAPE = [
-    "8534.00", "8501.52", "7408.11", "7604.29",
-    "9001.90", "8525.80", "8542.31",
-]
+# Only our 5 target HS codes (4-digit for JKDM search)
+# NOTE: 8501.52 replaced by 8501.10 (spindle motors, 8501103000)
+# NOTE: 8542.31 (Taiwan) not scraped from JKDM — Taiwan has no FTA with Malaysia
+HS_CODES_TO_SCRAPE = ["8534", "7604", "8501", "9001"]
 
+# Maps JKDM dropdown label → fta_name stored in DB
+# ATIGA is NOT in JKDM dropdown — handled separately via PDF fallback
+# Only scrape FTAs relevant to our 4 origin countries
 JKDM_TARIFF_MAP = {
-    "PDK 2025 - PERINTAH DUTI KASTAM 2025":                    "PDK",
-    "PDK (ATIGA) - ASEAN TRADE GOODS AGREEMENT (ATIGA) 2022":  "ATIGA",
-    "ACFTA - ASEAN CHINA FREE TRADE AGREEMENT":                 "ACFTA",
-    "AHKFTA - ASEAN HONG KONG FREE TRADE AGREEMENT":            "AHKFTA",
-    "MPCEPA - MALAYSIA PAKISTAN CLOSER ECONOMIC PARTNERSHIP":   "MPCEPA",
-    "AKFTA - ASEAN KOREA FREE TRADE AGREEMENT":                 "AKFTA",
-    "AJCEP - ASEAN JAPAN COMPREHENSIVE ECONOMIC PARTNERSHIP":   "AJCEP",
-    "AIFTA - ASEAN INDIA FREE TRADE AGREEMENT":                 "AIFTA",
-    "AANZFTA - ASEAN AUSTRALIA NEW ZEALAND FREE TRADE":         "AANZFTA",
-    "MCFTA - MALAYSIA CHILE FREE TRADE AGREEMENT":              "MCFTA",
-    "MAFTA - MALAYSIA AUSTRALIA FREE TRADE AGREEMENT":          "MAFTA",
-    "MJEPA - MALAYSIA JAPAN ECONOMIC PARTNERSHIP":              "MJEPA",
-    "MNZFTA - MALAYSIA NEW ZEALAND FREE TRADE AGREEMENT":       "MNZFTA",
-    "MICECA - MALAYSIA INDIA COMPREHENSIVE ECONOMIC":           "MICECA",
-    "MTFTA - MALAYSIA TURKEY FREE TRADE AGREEMENT":             "MTFTA",
-    "RCEP - REGIONAL COMPREHENSIVE ECONOMIC PARTNERSHIP":       "RCEP",
-    "CPTPP - COMPREHENSIVE PROGRESSIVE AGREEMENT":              "CPTPP",
+    "PDK 2025 - PERINTAH DUTI KASTAM 2025":              "PDK",
+    "ACFTA - ASEAN CHINA FREE TRADE AGREEMENT":           "ACFTA",
+    "AKFTA - ASEAN KOREA FREE TRADE AGREEMENT":           "AKFTA",
+    "RCEP - REGIONAL COMPREHENSIVE ECONOMIC PARTNERSHIP": "RCEP",
 }
 
-# ── MITI page URLs ────────────────────────────────────────────────
+# For each FTA+HS searched, which 10-digit sub-code row to read
+# JKDM returns multiple sub-codes per header; we pick the specific one
+# that matches our product type
+JKDM_SUBCODE_TARGET = {
+    "8534": "8534001000",   # single-sided PCB
+    "7604": "7604291000",   # extruded bars and rods (aluminium alloy profile)
+    "8501": "8501103000",   # spindle motors (DC electric)
+    "9001": "9001901000",   # optical lens for cameras/projectors
+    "8542": "8542310000",   # electronic ICs / processors (Taiwan MFN baseline)
+}
+
+# Origin country to assign per FTA when upserting (JKDM has no origin selector)
+JKDM_FTA_ORIGIN = {
+    "PDK":   "MFN",           # MFN baseline — applies to all countries
+    "ACFTA": "China",
+    "AKFTA": "South Korea",
+    "RCEP":  None,            # multiple origins — see RCEP_COUNTRIES below
+}
+RCEP_COUNTRIES = ["Vietnam", "China", "South Korea"]
+
+# Only search relevant HS codes per FTA — avoids wasted requests + wrong insertions
+# ACFTA is China-only → only motors (8501); AKFTA is Korea-only → only optical (9001)
+# RCEP and PDK cover all 4 HS codes
+JKDM_FTA_HS_SCOPE = {
+    "PDK":   ["8534", "7604", "8501", "9001", "8542"],  # MFN baseline — all 5 HS codes
+    "RCEP":  ["8534", "7604", "8501", "9001"],           # applies to Vietnam/China/S.Korea
+    "ACFTA": ["8501"],                                   # China motors only
+    "AKFTA": ["9001"],                                   # Korea optical only
+}
+
+# ── MITI page URLs — restricted to our 4 FTAs only ───────────────
+# ATIGA included here as PDF fallback source (JKDM doesn't have ATIGA)
+# Other FTAs excluded — not needed for our 4 origin countries demo
 FTA_PAGES = {
-    "ATIGA":      "https://fta.miti.gov.my/index.php/pages/view/asean-afta",
-    "ACFTA":      "https://fta.miti.gov.my/index.php/pages/view/asean-china",
-    "AKFTA":      "https://fta.miti.gov.my/index.php/pages/view/asean-korea",
-    "AJCEP":      "https://fta.miti.gov.my/index.php/pages/view/asean-japan",
-    "AIFTA":      "https://fta.miti.gov.my/index.php/pages/view/asean-india",
-    "AANZFTA":    "https://fta.miti.gov.my/index.php/pages/view/asean-australia-newzealand",
-    "AHKFTA":     "https://fta.miti.gov.my/index.php/pages/view/asean-hongkong-china",
-    "RCEP":       "https://fta.miti.gov.my/index.php/pages/view/rcep",
-    "CPTPP":      "https://fta.miti.gov.my/index.php/pages/view/tpp_cptpp",
-    "MAFTA":      "https://fta.miti.gov.my/index.php/pages/view/malaysia-australia",
-    "MCFTA":      "https://fta.miti.gov.my/index.php/pages/view/malaysia-chile",
-    "MICECA":     "https://fta.miti.gov.my/index.php/pages/view/malaysia-india",
-    "MJEPA":      "https://fta.miti.gov.my/index.php/pages/view/malaysia-japan",
-    "MNZFTA":     "https://fta.miti.gov.my/index.php/pages/view/malaysia-newzealand",
-    "MPCEPA":     "https://fta.miti.gov.my/index.php/pages/view/malaysia-pakistan",
-    "MTFTA":      "https://fta.miti.gov.my/index.php/pages/view/malaysia-turkey",
-    "TPS-OIC":    "https://fta.miti.gov.my/index.php/pages/view/109",
+    "ATIGA": "https://fta.miti.gov.my/index.php/pages/view/asean-afta",
+    "ACFTA": "https://fta.miti.gov.my/index.php/pages/view/asean-china",
+    "AKFTA": "https://fta.miti.gov.my/index.php/pages/view/asean-korea",
+    "RCEP":  "https://fta.miti.gov.my/index.php/pages/view/rcep",
 }
 
 # ── Complete metadata for all 17 FTAs ────────────────────────────
@@ -205,12 +214,10 @@ COUNTRY_CODE_MAP = {
     "GBR": "United Kingdom", "PER": "Peru",        "BGD": "Bangladesh",
 }
 
+# Only RCEP has a known directory listing URL for PDFs
+# ATIGA PDF used as fallback when JKDM is unavailable (MITI site may be down)
 MITI_PDF_DIRS = {
-    "RCEP":   "https://fta.miti.gov.my/miti-fta/resources/RCEP/",
-    "CPTPP":  "https://fta.miti.gov.my/miti-fta/resources/CPTPP/",
-    "MAFTA":  "https://fta.miti.gov.my/miti-fta/resources/MAFTA/",
-    "MJEPA":  "https://fta.miti.gov.my/miti-fta/resources/MJEPA/",
-    "MNZFTA": "https://fta.miti.gov.my/miti-fta/resources/MNZFTA/",
+    "RCEP": "https://fta.miti.gov.my/miti-fta/resources/RCEP/",
 }
 
 
@@ -224,6 +231,14 @@ async def scrape_jkdm_rates() -> dict:
 
 
 def _scrape_jkdm_sync() -> dict:
+    """
+    Scrape JKDM ezhs.customs.gov.my for real FTA rates.
+    - Searches by 4-digit HS header (JKDM only accepts 4 digits)
+    - Finds the specific 10-digit sub-code row we care about (JKDM_SUBCODE_TARGET)
+    - Reads CURRENT RATE from that row
+    - Stores with correct origin_country per FTA
+    - ATIGA not in JKDM — handled by _scrape_atiga_fallback()
+    """
     from playwright.sync_api import sync_playwright
     supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
     rates_updated = 0
@@ -236,41 +251,65 @@ def _scrape_jkdm_sync() -> dict:
             context = browser.new_context(ignore_https_errors=True)
             page    = context.new_page()
 
-            for hs_code in HS_CODES_TO_SCRAPE:
-                for tariff_label, fta_name in JKDM_TARIFF_MAP.items():
+            for tariff_label, fta_name in JKDM_TARIFF_MAP.items():
+                hs_scope = JKDM_FTA_HS_SCOPE.get(fta_name, [])
+                for hs_4digit in hs_scope:
+                    target_subcode = JKDM_SUBCODE_TARGET.get(hs_4digit)
+                    if not target_subcode:
+                        continue
+
                     for attempt in range(3):
                         try:
-                            page.goto("https://ezhs.customs.gov.my", timeout=30000)
-                            page.wait_for_load_state("networkidle")
+                            page.goto("https://ezhs.customs.gov.my", timeout=60000)
+                            page.wait_for_load_state("domcontentloaded")
                             page.select_option("select", label=tariff_label)
                             time.sleep(0.5)
-                            page.fill("input[type='text']", hs_code.replace(".", ""))
+                            page.fill("input[type='text']", hs_4digit)
                             page.click("input[type='submit'], button[type='submit']")
-                            page.wait_for_load_state("networkidle")
+                            # Wait for results — gracefully handle pages with no table
+                            try:
+                                page.wait_for_selector("table tr td", timeout=15000)
+                            except Exception:
+                                # No table appeared (no-results page or slow load) — wait fixed delay
+                                time.sleep(3)
                             time.sleep(1)
 
-                            page_text    = page.inner_text("body")
-                            rate_matches = re.findall(r"(\d+\.?\d*)\s*%", page_text)
+                            rate = _extract_rate_for_subcode(page, target_subcode)
 
-                            if rate_matches:
-                                rate = float(rate_matches[0])
-                                supabase.table("fta_rates").upsert(
-                                    {
-                                        "fta_name":              fta_name,
-                                        "hs_code":               hs_code,
-                                        "preferential_rate_pct": rate,
-                                        "effective_date":        "2025-01-01",
-                                    },
-                                    on_conflict="fta_name,hs_code,origin_country"
-                                ).execute()
-                                rates_updated += 1
-                                print(f"[jkdm] {fta_name} | {hs_code} → {rate}%")
+                            if rate is not None:
+                                hs_dot  = _subcode_to_dot(target_subcode)
+                                origins = RCEP_COUNTRIES if fta_name == "RCEP" else [JKDM_FTA_ORIGIN.get(fta_name, "Unknown")]
+
+                                for origin in origins:
+                                    supabase.table("fta_rates").upsert(
+                                        {
+                                            "fta_name":              fta_name,
+                                            "hs_code":               hs_dot,
+                                            "preferential_rate_pct": rate,
+                                            "origin_country":        origin,
+                                            "effective_date":        "2025-01-01",
+                                            "pdf_source_url":        "https://ezhs.customs.gov.my",
+                                            "last_verified_at":      datetime.now(timezone.utc).isoformat(),
+                                        },
+                                        on_conflict="fta_name,hs_code,origin_country"
+                                    ).execute()
+                                    rates_updated += 1
+
+                                print(f"[jkdm] {fta_name} | {hs_dot} ({target_subcode}) → {rate}% [{', '.join(origins)}]")
+
+                                supabase.table("pipeline_logs").insert({
+                                    "event_type":  "jkdm_rate_scraped",
+                                    "source_url":  "https://ezhs.customs.gov.my",
+                                    "description": f"{fta_name} | HS {hs_dot} | sub-code {target_subcode} = {rate}%",
+                                    "detail":      {"fta": fta_name, "hs_code": hs_dot,
+                                                    "subcode": target_subcode, "rate": rate},
+                                }).execute()
                             else:
-                                print(f"[jkdm] No rate: {fta_name} | {hs_code}")
+                                print(f"[jkdm] Sub-code {target_subcode} not found in {fta_name} results")
                             break
 
                         except Exception as e:
-                            print(f"[jkdm] {fta_name}/{hs_code} attempt {attempt+1}: {e}")
+                            print(f"[jkdm] {fta_name}/{hs_4digit} attempt {attempt+1}: {e}")
                             time.sleep(2 ** attempt)
 
             browser.close()
@@ -278,7 +317,523 @@ def _scrape_jkdm_sync() -> dict:
     except Exception as e:
         print(f"[jkdm] _scrape_jkdm_sync failed: {e}")
 
+    # After JKDM: ATIGA Vietnam rates from MITI Excel
+    try:
+        _scrape_atiga_fallback(supabase)
+    except Exception as e:
+        print(f"[atiga] scrape failed (non-fatal): {e}")
+
+    # ACFTA China — Malaysia tariff schedule + RoO PSR PDFs
+    try:
+        _scrape_acfta_malaysia(supabase)
+    except Exception as e:
+        print(f"[acfta] scrape failed (non-fatal): {e}")
+
+    # AKFTA Korea PSR PDF — cross-check RoO rules
+    try:
+        _scrape_akfta_psr(supabase)
+    except Exception as e:
+        print(f"[akfta] PSR scrape failed (non-fatal): {e}")
+
     return {"rates_updated": rates_updated}
+
+
+def _extract_rate_for_subcode(page, target_subcode: str):
+    """
+    Parse the JKDM results table.
+
+    PDK format:  HEADER(0) | SUB(1) | ITEM(2) | UNIT(3) | DESCRIPTION(4) | IMPORT RATE(5)
+    FTA format:  ... | FULL_HS(3) | ... | CURRENT RATE(5)
+
+    Detection: PDK rows have a 4-digit number in col0, so we reconstruct
+    full_hs = col0 + col1.zfill(2) + col2.zfill(4).
+    """
+    try:
+        rows = page.query_selector_all("table tr")
+
+        for row in rows:
+            cells = row.query_selector_all("td")
+            if len(cells) < 6:
+                continue
+
+            c0 = cells[0].inner_text().strip().replace(" ", "")
+            c1 = cells[1].inner_text().strip().replace(" ", "")
+            c2 = cells[2].inner_text().strip().replace(" ", "")
+
+            # PDK format: col0 is 4-digit header, col1 is 2-digit sub, col2 is 4-digit item
+            if c0.isdigit() and len(c0) == 4 and c1.isdigit() and c2.isdigit():
+                full_hs   = c0 + c1.zfill(2) + c2.zfill(4)
+                rate_text = cells[5].inner_text().strip().replace("%", "").replace(",", ".").strip()
+            else:
+                # FTA format: full HS code in col3
+                full_hs   = cells[3].inner_text().strip().replace(" ", "")
+                rate_text = cells[5].inner_text().strip().replace("%", "").replace(",", ".").strip()
+
+            if rate_text in ("", "-", "N/A", "CURRENT RATE", "IMPORT RATE"):
+                continue
+
+            if full_hs != target_subcode:
+                continue
+
+            if rate_text.lower() in ("free", "nil", "0"):
+                return 0.0
+            try:
+                rate = float(rate_text)
+                if 0.0 <= rate <= 100.0:
+                    return rate
+            except ValueError:
+                pass
+
+        return None
+    except Exception as e:
+        print(f"[jkdm] _extract_rate_for_subcode({target_subcode}) error: {e}")
+        return None
+
+
+def _subcode_to_dot(subcode: str) -> str:
+    """Convert 10-digit JKDM code to 6-digit dot notation: 8534001000 → 8534.00"""
+    digits = subcode[:6]  # take first 6 digits
+    return f"{digits[:4]}.{digits[4:6]}"
+
+
+def _scrape_atiga_fallback(supabase) -> None:
+    """
+    ATIGA is NOT in JKDM dropdown.
+    Primary: visit MITI ATIGA page, find Vietnam Excel tariff schedule, download + parse.
+    Fallback: use known ASEAN full-liberalisation rates if download fails.
+    """
+    import io
+    import re
+    import tempfile
+    import requests
+    import openpyxl
+
+    ATIGA_PAGE   = "https://fta.miti.gov.my/index.php/pages/view/asean-afta"
+    ORIGIN       = "Vietnam"
+    # 4-digit HS prefixes we care about (dot-notation lookup keys)
+    TARGET_HS = {
+        "8534": "8534.00",
+        "7604": "7604.29",
+        "8501": "8501.10",
+        "9001": "9001.90",
+    }
+    FALLBACK_RATES = {
+        "8534.00": 0.0,   # electronics — ASEAN fully liberalised since 2010
+        "7604.29": 0.0,   # aluminium  — ASEAN fully liberalised since 2015
+        "8501.10": 0.0,   # motors     — ASEAN fully liberalised
+        "9001.90": 0.0,   # optics     — ASEAN fully liberalised
+    }
+
+    excel_url  = None
+    excel_file = None
+
+    # ── Step 1: find the Vietnam Excel link on MITI ATIGA page ──────
+    try:
+        from playwright.sync_api import sync_playwright
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True, args=["--ignore-certificate-errors"])
+            page    = browser.new_context(ignore_https_errors=True).new_page()
+            page.goto(ATIGA_PAGE, timeout=30000)
+            try:
+                page.wait_for_selector("a", timeout=10000)
+            except Exception:
+                pass
+
+            # Find link whose text contains "Viet Nam" or "Vietnam" + "Annex 2"
+            links = page.query_selector_all("a")
+            for link in links:
+                text = (link.inner_text() or "").strip()
+                href = link.get_attribute("href") or ""
+                if re.search(r"viet.?nam", text, re.IGNORECASE) and re.search(r"annex.?2|tariff.?schedule", text, re.IGNORECASE):
+                    excel_url = href if href.startswith("http") else f"https://fta.miti.gov.my{href}"
+                    print(f"[atiga] Found Vietnam Excel link: {excel_url}")
+                    break
+
+            browser.close()
+    except Exception as e:
+        print(f"[atiga] Playwright failed finding Excel link: {e}")
+
+    # ── Step 2: download and parse the Excel ────────────────────────
+    if excel_url:
+        try:
+            resp = requests.get(excel_url, timeout=60, verify=False)
+            resp.raise_for_status()
+            excel_file = io.BytesIO(resp.content)
+            print(f"[atiga] Downloaded Excel ({len(resp.content)//1024} KB)")
+        except Exception as e:
+            print(f"[atiga] Excel download failed: {e}")
+
+    scraped_rates = {}
+    if excel_file:
+        try:
+            wb = openpyxl.load_workbook(excel_file, read_only=True, data_only=True)
+            for sheet_name in wb.sheetnames:
+                ws = wb[sheet_name]
+                for row in ws.iter_rows(values_only=True):
+                    # Find column with HS code (first cell that looks like a number/string HS)
+                    for i, cell in enumerate(row):
+                        if cell is None:
+                            continue
+                        cell_str = str(cell).strip().replace(".", "").replace(" ", "")
+                        if not cell_str.isdigit():
+                            continue
+                        prefix = cell_str[:4]
+                        if prefix not in TARGET_HS:
+                            continue
+                        # Rate is typically in a nearby numeric column — scan rightward
+                        for j in range(i + 1, min(i + 8, len(row))):
+                            rate_val = row[j]
+                            if rate_val is None:
+                                continue
+                            try:
+                                rate = float(str(rate_val).replace("%", "").strip())
+                                if 0.0 <= rate <= 100.0:
+                                    hs_dot = TARGET_HS[prefix]
+                                    if hs_dot not in scraped_rates:
+                                        scraped_rates[hs_dot] = rate
+                                    break
+                            except (ValueError, TypeError):
+                                pass
+            wb.close()
+            print(f"[atiga] Parsed rates from Excel: {scraped_rates}")
+        except Exception as e:
+            print(f"[atiga] Excel parse failed: {e}")
+
+    # ── Step 3: upsert — use scraped if available, else fallback ────
+    source_url  = excel_url or "https://fta.miti.gov.my (Excel unavailable — fallback)"
+    needs_review = not bool(scraped_rates)
+
+    for hs_dot, fallback_rate in FALLBACK_RATES.items():
+        rate = scraped_rates.get(hs_dot, fallback_rate)
+        try:
+            supabase.table("fta_rates").upsert(
+                {
+                    "fta_name":              "ATIGA",
+                    "hs_code":               hs_dot,
+                    "preferential_rate_pct": rate,
+                    "origin_country":        ORIGIN,
+                    "effective_date":        "2010-01-01",
+                    "pdf_source_url":        source_url,
+                    "needs_review":          needs_review,
+                    "last_verified_at":      datetime.now(timezone.utc).isoformat(),
+                },
+                on_conflict="fta_name,hs_code,origin_country"
+            ).execute()
+            src = "Excel" if hs_dot in scraped_rates else "fallback"
+            print(f"[atiga] ATIGA {hs_dot} Vietnam = {rate}% [{src}]")
+        except Exception as e:
+            print(f"[atiga] Upsert failed for {hs_dot}: {e}")
+
+    supabase.table("pipeline_logs").insert({
+        "event_type":  "atiga_excel_scraped" if scraped_rates else "atiga_fallback_used",
+        "source_url":  source_url,
+        "description": f"ATIGA Vietnam rates: {len(scraped_rates)} from Excel, {len(FALLBACK_RATES)-len(scraped_rates)} fallback",
+        "detail":      {"scraped": scraped_rates, "excel_url": excel_url},
+    }).execute()
+
+
+def _scrape_acfta_malaysia(supabase) -> None:
+    """
+    Visit MITI ACFTA page → Related Documents tab → Malaysia tariff schedule.
+    Downloads the Malaysia file (Excel/PDF), extracts rate for HS 8501.10 (motors from China).
+    Also grabs the two Revised ROO PDFs for ACFTA PSR cross-check.
+    General RoO confirmed from page: RVC >= 40% (build-down) or PSR.
+    """
+    import io
+    import re
+    import requests
+    import openpyxl
+    import pdfplumber
+
+    ACFTA_PAGE = "https://fta.miti.gov.my/index.php/pages/view/asean-china"
+    TARGET_HS  = {"8501": "8501.10"}   # only China motors for our project
+
+    malaysia_url = None
+    roo_pdf_urls = []
+
+    # ── Step 1: find Malaysia tariff schedule link + RoO PDFs ─────
+    try:
+        from playwright.sync_api import sync_playwright
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True, args=["--ignore-certificate-errors"])
+            page    = browser.new_context(ignore_https_errors=True).new_page()
+            page.goto(ACFTA_PAGE, timeout=30000)
+
+            # Click "Related Documents" tab if present
+            try:
+                page.click("text=Related Documents", timeout=5000)
+                page.wait_for_selector("a", timeout=5000)
+            except Exception:
+                pass
+
+            for link in page.query_selector_all("a"):
+                text = (link.inner_text() or "").strip()
+                href = link.get_attribute("href") or ""
+                full = href if href.startswith("http") else f"https://fta.miti.gov.my{href}"
+
+                # Malaysia tariff schedule
+                if re.search(r"\bmalaysia\b", text, re.IGNORECASE) and not malaysia_url:
+                    if re.search(r"\.(xls|xlsx|pdf|zip)$", href, re.IGNORECASE) or re.search(r"tariff|schedule|annex", text, re.IGNORECASE):
+                        malaysia_url = full
+                        print(f"[acfta] Found Malaysia schedule: {malaysia_url}")
+
+                # Revised ROO PDFs (both links shown on the page)
+                if re.search(r"ROO|Rules.of.Origin|Annex", text, re.IGNORECASE) and href.endswith(".pdf"):
+                    roo_pdf_urls.append(full)
+
+            browser.close()
+    except Exception as e:
+        print(f"[acfta] Playwright failed: {e}")
+
+    # ── Step 2: download + parse Malaysia tariff schedule ─────────
+    scraped_rates = {}
+    if malaysia_url:
+        try:
+            resp = requests.get(malaysia_url, timeout=60, verify=False)
+            resp.raise_for_status()
+            content = resp.content
+            print(f"[acfta] Downloaded Malaysia schedule ({len(content)//1024} KB)")
+
+            # Try Excel first
+            if malaysia_url.lower().endswith((".xls", ".xlsx")) or b"xl/" in content[:2000]:
+                try:
+                    wb = openpyxl.load_workbook(io.BytesIO(content), read_only=True, data_only=True)
+                    for ws in wb.worksheets:
+                        for row in ws.iter_rows(values_only=True):
+                            for i, cell in enumerate(row):
+                                cell_str = str(cell or "").strip().replace(".", "").replace(" ", "")
+                                if not cell_str.isdigit():
+                                    continue
+                                prefix = cell_str[:4]
+                                if prefix not in TARGET_HS:
+                                    continue
+                                for j in range(i + 1, min(i + 8, len(row))):
+                                    try:
+                                        rate = float(str(row[j] or "").replace("%", "").strip())
+                                        if 0.0 <= rate <= 100.0:
+                                            scraped_rates[TARGET_HS[prefix]] = rate
+                                            break
+                                    except (ValueError, TypeError):
+                                        pass
+                    wb.close()
+                except Exception as e:
+                    print(f"[acfta] Excel parse failed: {e}")
+
+            # Fallback: PDF parse
+            if not scraped_rates:
+                try:
+                    with pdfplumber.open(io.BytesIO(content)) as pdf:
+                        for pg in pdf.pages:
+                            for table in (pg.extract_tables() or []):
+                                for row in table:
+                                    row_text = " ".join(str(c) for c in row if c)
+                                    for prefix, hs_dot in TARGET_HS.items():
+                                        if prefix in row_text and hs_dot not in scraped_rates:
+                                            m = re.search(r"(\d+(?:\.\d+)?)\s*%", row_text)
+                                            if m:
+                                                scraped_rates[hs_dot] = float(m.group(1))
+                except Exception as e:
+                    print(f"[acfta] PDF parse failed: {e}")
+
+            print(f"[acfta] Parsed rates: {scraped_rates}")
+        except Exception as e:
+            print(f"[acfta] Schedule download failed: {e}")
+
+    # ── Step 3: upsert scraped ACFTA rates as cross-check ─────────
+    for hs_dot, rate in scraped_rates.items():
+        try:
+            existing = (supabase.table("fta_rates")
+                .select("preferential_rate_pct")
+                .eq("fta_name", "ACFTA").eq("hs_code", hs_dot).eq("origin_country", "China")
+                .limit(1).execute())
+            if existing.data:
+                old = existing.data[0]["preferential_rate_pct"]
+                if old != rate:
+                    print(f"[acfta] RATE CHANGED: ACFTA {hs_dot} China {old}% → {rate}%")
+                    supabase.table("pipeline_logs").insert({
+                        "event_type":  "acfta_rate_changed",
+                        "source_url":  malaysia_url,
+                        "description": f"ACFTA {hs_dot} China changed: {old}% → {rate}%",
+                        "detail":      {"hs_code": hs_dot, "old": old, "new": rate},
+                    }).execute()
+
+            supabase.table("fta_rates").upsert({
+                "fta_name":              "ACFTA",
+                "hs_code":               hs_dot,
+                "preferential_rate_pct": rate,
+                "origin_country":        "China",
+                "effective_date":        "2005-07-20",
+                "pdf_source_url":        malaysia_url,
+                "needs_review":          False,
+                "last_verified_at":      datetime.now(timezone.utc).isoformat(),
+            }, on_conflict="fta_name,hs_code,origin_country").execute()
+            print(f"[acfta] ACFTA {hs_dot} China = {rate}% [from Malaysia schedule]")
+        except Exception as e:
+            print(f"[acfta] Upsert failed {hs_dot}: {e}")
+
+    # ── Step 4: parse RoO PDFs → upsert into roo_rules ────────────
+    for pdf_url in roo_pdf_urls[:2]:   # max 2 PDFs
+        try:
+            resp = requests.get(pdf_url, timeout=60, verify=False)
+            resp.raise_for_status()
+            with pdfplumber.open(io.BytesIO(resp.content)) as pdf:
+                for pg in pdf.pages:
+                    for table in (pg.extract_tables() or []):
+                        for row in table:
+                            row_text = " ".join(str(c) for c in row if c)
+                            for prefix, hs_dot in TARGET_HS.items():
+                                if prefix not in row_text:
+                                    continue
+                                roo_type = "RVC_OR_CTH"
+                                rvc_pct  = 40.0
+                                if re.search(r"CC\b", row_text):
+                                    roo_type = "CC"
+                                elif re.search(r"CTH", row_text):
+                                    roo_type = "RVC_OR_CTH"
+                                m = re.search(r"(\d+)\s*%", row_text)
+                                if m:
+                                    rvc_pct = float(m.group(1))
+                                supabase.table("roo_rules").upsert({
+                                    "fta_name":          "ACFTA",
+                                    "hs_code":           hs_dot,
+                                    "roo_type":          roo_type,
+                                    "rvc_threshold_pct": rvc_pct,
+                                    "rule_text":         row_text[:300],
+                                    "source_url":        pdf_url,
+                                }, on_conflict="fta_name,hs_code").execute()
+                                print(f"[acfta] RoO {hs_dot}: {roo_type} {rvc_pct}% (PSR PDF)")
+        except Exception as e:
+            print(f"[acfta] RoO PDF {pdf_url} failed: {e}")
+
+    supabase.table("pipeline_logs").insert({
+        "event_type":  "acfta_malaysia_scraped",
+        "source_url":  malaysia_url or ACFTA_PAGE,
+        "description": f"ACFTA Malaysia schedule: {len(scraped_rates)} rates, {len(roo_pdf_urls)} RoO PDFs processed",
+        "detail":      {"rates": scraped_rates, "roo_pdfs": roo_pdf_urls},
+    }).execute()
+
+
+def _scrape_akfta_psr(supabase) -> None:
+    """
+    Visit MITI AKFTA page, find "AKFTA PSRs in HS 2012" PDF link, download it,
+    extract Product-Specific Rules for our target HS codes, upsert into roo_rules.
+    Used as cross-check against hardcoded RoO values.
+    RoO general rule confirmed from page: RVC >= 40% (build-down or build-up) OR CTH.
+    """
+    import io
+    import re
+    import pdfplumber
+    import requests
+
+    AKFTA_PAGE  = "https://fta.miti.gov.my/index.php/pages/view/asean-korea"
+    TARGET_HS   = {"8534", "7604", "8501", "9001"}   # 4-digit prefixes we care about
+    HS_DOT_MAP  = {
+        "8534": "8534.00", "7604": "7604.29",
+        "8501": "8501.10", "9001": "9001.90",
+    }
+
+    pdf_url  = None
+    pdf_bytes = None
+
+    # ── Step 1: find PSR PDF link ─────────────────────────────────
+    try:
+        from playwright.sync_api import sync_playwright
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True, args=["--ignore-certificate-errors"])
+            page    = browser.new_context(ignore_https_errors=True).new_page()
+            page.goto(AKFTA_PAGE, timeout=30000)
+            try:
+                page.wait_for_selector("a", timeout=10000)
+            except Exception:
+                pass
+
+            for link in page.query_selector_all("a"):
+                text = (link.inner_text() or "").strip()
+                href = link.get_attribute("href") or ""
+                if re.search(r"PSR|product.specific.rule", text, re.IGNORECASE):
+                    pdf_url = href if href.startswith("http") else f"https://fta.miti.gov.my{href}"
+                    print(f"[akfta] Found PSR PDF link: {pdf_url}")
+                    break
+            browser.close()
+    except Exception as e:
+        print(f"[akfta] Playwright failed finding PSR link: {e}")
+
+    # ── Step 2: download PDF ──────────────────────────────────────
+    if pdf_url:
+        try:
+            resp = requests.get(pdf_url, timeout=60, verify=False)
+            resp.raise_for_status()
+            pdf_bytes = resp.content
+            print(f"[akfta] Downloaded PSR PDF ({len(pdf_bytes)//1024} KB)")
+        except Exception as e:
+            print(f"[akfta] PDF download failed: {e}")
+
+    if not pdf_bytes:
+        print("[akfta] PSR PDF unavailable — skipping RoO cross-check")
+        return
+
+    # ── Step 3: parse PDF for PSR rows ───────────────────────────
+    # PSR table rows look like: "8534.00  |  RVC 40% or CTH"
+    # We look for our HS prefixes then read the rule text from nearby cells.
+    psr_found = {}
+    try:
+        with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+            for pg in pdf.pages:
+                tables = pg.extract_tables()
+                for table in tables:
+                    for row in table:
+                        if not row:
+                            continue
+                        row_text = " ".join(str(c) for c in row if c)
+                        for prefix in TARGET_HS:
+                            if prefix in row_text and prefix not in psr_found:
+                                # Determine rule type from text
+                                roo_type  = "RVC_OR_CTH"
+                                rvc_pct   = 40.0
+                                rule_text = row_text.strip()
+                                if re.search(r"wholly\s+obtain", rule_text, re.IGNORECASE):
+                                    roo_type = "WO"
+                                elif re.search(r"CTH", rule_text):
+                                    roo_type = "RVC_OR_CTH"
+                                elif re.search(r"CC\b", rule_text):
+                                    roo_type = "CC"
+                                m = re.search(r"(\d+)\s*%", rule_text)
+                                if m:
+                                    rvc_pct = float(m.group(1))
+                                psr_found[prefix] = {
+                                    "roo_type":         roo_type,
+                                    "rvc_threshold_pct": rvc_pct,
+                                    "rule_text":         rule_text[:300],
+                                }
+    except Exception as e:
+        print(f"[akfta] PDF parse failed: {e}")
+
+    # ── Step 4: upsert into roo_rules ────────────────────────────
+    for prefix, rule in psr_found.items():
+        hs_dot = HS_DOT_MAP.get(prefix, f"{prefix[:4]}.{prefix[4:6]}")
+        try:
+            supabase.table("roo_rules").upsert(
+                {
+                    "fta_name":           "AKFTA",
+                    "hs_code":            hs_dot,
+                    "roo_type":           rule["roo_type"],
+                    "rvc_threshold_pct":  rule["rvc_threshold_pct"],
+                    "rule_text":          rule["rule_text"],
+                    "source_url":         pdf_url,
+                },
+                on_conflict="fta_name,hs_code",
+            ).execute()
+            print(f"[akfta] RoO {hs_dot}: {rule['roo_type']} {rule['rvc_threshold_pct']}% (from PDF)")
+        except Exception as e:
+            print(f"[akfta] roo_rules upsert failed for {hs_dot}: {e}")
+
+    supabase.table("pipeline_logs").insert({
+        "event_type":  "akfta_psr_scraped",
+        "source_url":  pdf_url or AKFTA_PAGE,
+        "description": f"AKFTA PSR PDF parsed: {len(psr_found)} rules extracted for our HS codes",
+        "detail":      {"pdf_url": pdf_url, "rules": psr_found},
+    }).execute()
+    print(f"[akfta] PSR cross-check complete: {len(psr_found)}/{len(TARGET_HS)} HS codes found in PDF")
 
 
 # ════════════════════════════════════════════════════════════════

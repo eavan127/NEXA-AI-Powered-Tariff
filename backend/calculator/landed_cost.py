@@ -103,7 +103,23 @@ async def calculate_landed_cost(shipment_id: str, supabase: Client) -> dict:
             return {"error": f"No FTA result for {shipment_id} — run Module B first"}
         fta      = fta_res.data[0]
         fta_rate = float(fta["best_fta_rate_pct"] or 0)
-        mfn_rate = float(fta["mfn_rate_pct"] if fta["mfn_rate_pct"] is not None else 5.0)
+
+        # Get MFN rate from fta_result, fallback to tariff_rates table (source of truth)
+        mfn_rate = None
+        if fta["mfn_rate_pct"] is not None:
+            mfn_rate = float(fta["mfn_rate_pct"])
+        else:
+            # Look up from tariff_rates using shipment's HS code
+            bom_preview = ship.get("bom_items") or []
+            if bom_preview:
+                hs_lookup = bom_preview[0].get("hs_code", "")
+                tr = supabase.table("tariff_rates").select("mfn_rate_pct") \
+                    .eq("country_code", "MYS").eq("hs_code", hs_lookup) \
+                    .limit(1).execute()
+                if tr.data:
+                    mfn_rate = float(tr.data[0]["mfn_rate_pct"])
+        if mfn_rate is None:
+            mfn_rate = 0.0
 
         # Load config
         cfg_res = supabase.table("config").select("key, value").execute()
@@ -153,11 +169,9 @@ async def calculate_landed_cost(shipment_id: str, supabase: Client) -> dict:
         total_landed_myr = round(total_cif_myr + total_duties_myr + processing_fee, 4)
         total_landed_usd = round(total_landed_myr / fx, 4)
 
-        # MFN scenario (for savings comparison; LMW → duties and SST both exempt)
-        mfn_duties_myr   = (
-            round(sum(s["_sku_cif_myr"] * (mfn_rate / 100) for s in sku_results), 4)
-            if not lmw else 0.0
-        )
+        # MFN scenario — hypothetical cost WITHOUT any FTA (used for savings comparison only)
+        # LMW exempts actual duties but the counterfactual still shows full MFN duty exposure
+        mfn_duties_myr   = round(sum(s["_sku_cif_myr"] * (mfn_rate / 100) for s in sku_results), 4)
         mfn_sales_tax    = round(0.10 * (total_cif_myr + mfn_duties_myr), 4) if not lmw else 0.0
         mfn_scenario_usd = round(
             (total_cif_myr + mfn_duties_myr + mfn_sales_tax + processing_fee) / fx, 4

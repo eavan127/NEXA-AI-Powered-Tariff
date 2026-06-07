@@ -338,6 +338,34 @@ async def override_hs_code(shipment_id: str, request: Request):
 
 
 # ── Layer 4: Submit Batch to SAP ──────────────────────────────────
+@router.post("/api/admin/process-all")
+async def process_all_pending(request: Request):
+    """Run classify → match-fta → landed-cost on every pending shipment."""
+    from classifier.hs_classifier import classify_hs_code
+    from calculator.fta_matcher import match_fta
+    from calculator.landed_cost import calculate_landed_cost
+
+    supabase = request.app.state.supabase
+    ships = supabase.table("shipments").select("sap_shipment_id") \
+        .eq("status", "pending").execute()
+
+    results = {"processed": 0, "failed": 0, "errors": []}
+    for row in (ships.data or []):
+        sid = row["sap_shipment_id"]
+        try:
+            classify_hs_code(sid, supabase)
+            await match_fta(sid, supabase)
+            await calculate_landed_cost(sid, supabase)
+            results["processed"] += 1
+            print(f"[batch] {sid} done")
+        except Exception as e:
+            results["failed"] += 1
+            results["errors"].append({"id": sid, "error": str(e)})
+            print(f"[batch] {sid} failed: {e}")
+
+    return {"status": "ok", "results": results}
+
+
 @router.post("/api/shipments/submit-batch")
 async def submit_batch_to_sap(request: Request):
     try:
@@ -558,6 +586,9 @@ async def run_ingestion_job(job: str, request: Request):
 
         return {"status": "ok", "job": job, "results": results}
     except Exception as e:
+        import traceback
+        print(f"[ingestion/{job}] ERROR: {e}")
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 

@@ -174,7 +174,7 @@ Gazette text (first 2000 chars):
             response = await client.post(
                 f"{settings.OLLAMA_BASE_URL}/api/generate",
                 json={
-                    "model":  "llama3",
+                    "model":  "qwen2.5:1.5b",
                     "prompt": prompt,
                     "stream": False
                 }
