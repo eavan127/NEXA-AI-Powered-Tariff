@@ -154,6 +154,156 @@
 .inline-form .form-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: var(--sp-sm); }
 .field-error { border-color: var(--error) !important; }
 
+/* ── Compliance case panels (matches .det-card / .det-head / .det-body pattern) */
+
+/* Alert banner — sits inside .det-body like other notice strips */
+.compliance-banner {
+  display: flex; align-items: flex-start; gap: 8px;
+  padding: 8px 10px; border-radius: var(--r-md);
+  margin-bottom: var(--sp-sm); font-family: var(--sans);
+}
+.compliance-banner.amber {
+  background: rgba(232,165,90,.08); border-left: 3px solid var(--amber);
+}
+.compliance-banner.red {
+  background: rgba(198,69,69,.07); border-left: 3px solid var(--error);
+}
+.compliance-banner.teal {
+  background: rgba(93,184,166,.07); border-left: 3px solid var(--teal);
+}
+.compliance-banner > i { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+.compliance-banner.amber > i { color: var(--amber); }
+.compliance-banner.red   > i { color: var(--error); }
+.compliance-banner.teal  > i { color: var(--teal); }
+.compliance-banner .banner-title {
+  font-size: 11.5px; font-weight: 600; margin-bottom: 2px; color: var(--body-strong);
+}
+.compliance-banner .banner-body {
+  font-size: 11px; color: var(--muted); line-height: 1.55;
+}
+
+/* Rate comparison row — same visual weight as cost-ln rows */
+.rate-compare-row {
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  padding: 8px 10px; background: var(--surface-soft);
+  border-radius: var(--r-md); margin-bottom: var(--sp-sm);
+}
+.rate-compare-row .rc-item { flex: 1; min-width: 80px; }
+.rate-compare-row .rc-label {
+  font-size: 10px; color: var(--muted-soft);
+  text-transform: uppercase; letter-spacing: .04em; margin-bottom: 2px;
+}
+.rate-compare-row .rc-val {
+  font-size: 18px; font-weight: 700; font-family: var(--mono); color: var(--ink);
+}
+.rc-val.old    { color: var(--muted-soft); text-decoration: line-through; }
+.rc-val.new    { color: var(--error); }
+.rc-val.expose { color: var(--error); }
+.rc-arrow      { font-size: 16px; color: var(--muted); flex-shrink: 0; }
+
+/* Dates grid — 2-col, same surface/font as cost breakdown sub-rows */
+.dates-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
+  padding: 8px 10px; background: var(--surface-soft);
+  border-radius: var(--r-md); margin-bottom: var(--sp-sm);
+}
+.date-cell .dc-label { font-size: 10px; color: var(--muted-soft); margin-bottom: 2px; }
+.date-cell .dc-val {
+  font-size: 11.5px; font-weight: 600; font-family: var(--mono); color: var(--ink);
+}
+
+/* Radio action cards — same border/bg language as inline-form */
+.radio-cards { display: flex; flex-direction: column; gap: 6px; margin-bottom: var(--sp-sm); }
+.radio-card {
+  display: flex; gap: 10px; align-items: flex-start;
+  padding: 9px 11px; border: 1px solid var(--hairline);
+  border-radius: var(--r-md); cursor: pointer; transition: border-color .12s, background .12s;
+  background: var(--canvas); font-family: var(--sans);
+}
+.radio-card:hover    { border-color: var(--primary); background: var(--surface-soft); }
+.radio-card.selected { border-color: var(--primary); background: rgba(204,120,92,.05); }
+.radio-card input[type=radio] { margin-top: 3px; flex-shrink: 0; accent-color: var(--primary); }
+.radio-card .rc-title  { font-size: 12px; font-weight: 600; color: var(--ink); margin-bottom: 2px; }
+.radio-card .rc-desc   { font-size: 11px; color: var(--muted); line-height: 1.55; }
+.radio-card .rc-outcome { font-size: 10.5px; font-weight: 600; margin-top: 4px; }
+.rc-outcome.green { color: var(--teal); }
+.rc-outcome.red   { color: var(--error); }
+.rc-outcome.amber { color: var(--amber); }
+
+/* Documentation package — same style as processing-fee sub-panel */
+.doc-package-box {
+  background: var(--surface-soft); border: 1px solid var(--hairline);
+  border-radius: var(--r-sm); padding: 8px 10px;
+  margin-bottom: var(--sp-sm); font-family: var(--sans);
+}
+.doc-package-box .dp-title {
+  font-size: 10px; font-weight: 700; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .04em; margin-bottom: 6px;
+}
+.doc-row {
+  display: flex; justify-content: space-between; align-items: baseline;
+  padding: 3px 0; border-bottom: 1px solid var(--hairline-soft); gap: 8px;
+  font-size: 11.5px;
+}
+.doc-row:last-child { border-bottom: none; }
+.doc-row .dr-label { color: var(--muted); }
+.doc-row .dr-val   { font-family: var(--mono); color: var(--ink); font-weight: 500; text-align: right; }
+
+/* Lock message for junior analysts trying senior actions */
+.role-locked-msg {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px; background: rgba(198,69,69,.06);
+  border: 1px solid rgba(198,69,69,.2); border-radius: var(--r-md);
+  font-size: 11.5px; color: var(--error); font-family: var(--sans);
+  margin-bottom: var(--sp-sm);
+}
+
+/* Role switcher chip in sidebar user area */
+.role-switcher {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 5px 8px; background: var(--surface-soft);
+  border: 1px solid var(--hairline); border-radius: var(--r-md);
+  margin-top: 6px; cursor: pointer; transition: background .12s;
+  font-family: var(--sans);
+}
+.role-switcher:hover { background: var(--surface-card); }
+.role-switcher .rs-label { font-size: 10px; color: var(--muted-soft); line-height: 1.3; }
+.role-switcher .rs-name  { font-size: 11px; font-weight: 600; color: var(--ink); }
+.role-switcher > i { font-size: 12px; color: var(--muted-soft); flex-shrink: 0; }
+
+/* Queue section headers */
+.queue-section-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 7px var(--sp-md) 4px;
+  font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+  border-bottom: 1px solid var(--hairline-soft);
+  margin-top: 2px;
+  background: var(--canvas);
+  position: sticky; top: 0; z-index: 1;
+}
+.queue-section-head:first-child { margin-top: 0; }
+.qs-count {
+  font-size: 9px; font-weight: 700; padding: 1px 5px;
+  border-radius: var(--r-pill); font-family: var(--mono);
+}
+.queue-section-note {
+  padding: 4px var(--sp-md) 2px;
+  font-size: 10px; color: var(--muted); font-style: italic;
+  background: var(--canvas); border-bottom: 1px solid var(--hairline-soft);
+}
+
+/* Flagged and alerted queue items */
+.queue-item.qi-flagged {
+  background: rgba(198,69,69,.04);
+}
+.queue-item.qi-flagged:hover,
+.queue-item.qi-flagged.selected { background: rgba(198,69,69,.08); }
+.queue-item.qi-alerted {
+  background: rgba(217,119,6,.04);
+}
+.queue-item.qi-alerted:hover,
+.queue-item.qi-alerted.selected { background: rgba(217,119,6,.08); }
+
 /* Completion state */
 .completion-card {
   background: var(--canvas);
@@ -247,41 +397,12 @@
           <div class="queue-progress"><div class="queue-progress-fill" id="queueProgressFill" style="width:0%"></div></div>
         </div>
 
-        <!-- Regulatory alert (hidden by default) -->
-        <div class="reg-alert" id="regAlert" style="display:none">
-          <i class="ti ti-alert-triangle" style="font-size:15px"></i>
-          <div>
-            <div class="reg-alert-title" id="regAlertTitle">Regulatory Alert</div>
-            <div class="reg-alert-body"  id="regAlertBody">—</div>
-          </div>
-        </div>
-
-        <!-- Filter tabs -->
-        <div class="filter-bar" style="background:var(--surface-soft)">
-          <button class="tab active" onclick="setQueueFilter('all',this)">All</button>
-          <button class="tab flag-tab" onclick="setQueueFilter('flagged',this)">
-            <i class="ti ti-alert-circle" style="font-size:11px"></i> Flagged
-          </button>
-          <button class="tab" onclick="setQueueFilter('pending',this)">Pending</button>
-          <button class="tab" onclick="setQueueFilter('approved',this)">
-            <i class="ti ti-check" style="font-size:11px"></i> Done
-          </button>
-        </div>
-
         <!-- Queue items -->
         <div class="queue-list" id="queueList">
           <div style="padding:24px;text-align:center;color:var(--muted-soft);font-size:12px">
             <i class="ti ti-loader-2 spin" style="font-size:20px;display:block;margin-bottom:8px"></i>
             Loading…
           </div>
-        </div>
-
-        <!-- Bulk approve footer -->
-        <div class="queue-footer">
-          <button class="btn btn-primary" style="width:100%;justify-content:center" id="bulkApproveBtn" onclick="doBulkApprove()" disabled>
-            <i class="ti ti-checks"></i> Bulk Approve ≥95% (0)
-          </button>
-          <div class="queue-footer-note">Each approval logged individually</div>
         </div>
 
       </div>
