@@ -101,6 +101,12 @@ async def fetch_shipment_from_sap(shipment_id:str) -> dict :
         # if falled, return mocked shipments as fallback
 
         
+async def write_duty_to_sap(sap_id: str, hs_code: str, duty_amount: float) -> dict:
+    result = await submit_to_sap(sap_id, {"hs_code": hs_code, "duty_amount": duty_amount})
+    result.setdefault("sap_document_number", result.pop("sap_document_id", "N/A"))
+    return result
+
+
 async def submit_to_sap(shipment_id: str, payload: dict) -> dict:
     """POST approved duty data back to SAP S/4HANA.
     Returns {"sap_document_id": "...", "submitted_at": "..."}
