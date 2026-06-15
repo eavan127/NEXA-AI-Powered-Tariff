@@ -1,7 +1,10 @@
 from fastapi import APIRouter, HTTPException, Request
-from api.schemas import ProcessBatchRequest, ApproveRequest, RejectRequest, OverrideHSRequest, DryRunPdfRequest
+from api.schemas import (ProcessBatchRequest, ApproveRequest, RejectRequest,
+                         OverrideHSRequest, DryRunPdfRequest,
+                         MockRateChangeRequest, RecalculateRequest,
+                         ReapproveRequest, Case3ActionRequest)
 from classifier.hs_classifier import classify_hs_code
-from ingestion.sap_connector import write_duty_to_sap
+from ingestion.sap_connector import submit_to_sap as write_duty_to_sap
 from fastapi.responses import Response
 from reports.compliance_pdf import generate_compliance_pdf
 
@@ -9,6 +12,23 @@ router = APIRouter()
 
 ANALYST_ID   = "SARAH_LIM"
 ANALYST_NAME = "Sarah Lim"
+
+# ── Role system ────────────────────────────────────────────────────
+ANALYSTS = {
+    "SARAH_LIM": {"name": "Sarah Lim",  "role": "junior_analyst"},
+    "JAMES_TAN":  {"name": "James Tan",  "role": "senior_analyst"},
+}
+_ROLE_LEVEL = {"junior_analyst": 0, "senior_analyst": 1, "compliance_manager": 2}
+
+def _require_role(analyst_id: str, required_role: str):
+    analyst = ANALYSTS.get(analyst_id)
+    if not analyst:
+        raise HTTPException(status_code=403, detail=f"Unknown analyst: {analyst_id}")
+    if _ROLE_LEVEL.get(analyst["role"], 0) < _ROLE_LEVEL.get(required_role, 0):
+        raise HTTPException(
+            status_code=403,
+            detail=f"Senior analyst approval required. Your role: {analyst['role']}"
+        )
 
 
 def _sort_nested(rows: list) -> list:
@@ -658,6 +678,406 @@ async def submit_batch_sap(request: Request):
             raise HTTPException(status_code=400, detail="No approved shipments to submit")
         result = await submit_batch_to_sap(ids, supabase)
         return {"status": "ok", "data": result}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ══════════════════════════════════════════════════════════════════
+# COMPLIANCE WORKFLOW — TARIFF CHANGE CASES 1 / 2 / 3
+# ══════════════════════════════════════════════════════════════════
+
+# ── Regulatory alerts ─────────────────────────────────────────────
+@router.get("/api/regulatory-alerts")
+async def get_regulatory_alerts(request: Request):
+    try:
+        supabase = request.app.state.supabase
+        result = supabase.table("regulatory_alerts").select("*") \
+            .eq("status", "active").order("detected_at", desc=True).execute()
+        return {"status": "ok", "data": result.data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ── Mock rate-change trigger (demo / testing) ─────────────────────
+@router.post("/api/admin/mock-rate-change")
+async def mock_rate_change(body: MockRateChangeRequest, request: Request):
+    """Inserts a regulatory_alerts row and flags SHIP011/SHIP012/SHIP013."""
+    try:
+        hs_code        = body.hs_code
+        old_rate       = body.old_rate
+        new_rate       = body.new_rate
+        effective_date = body.effective_date
+
+        supabase = request.app.state.supabase
+
+        # Resolve test-shipment UUIDs
+        ships = supabase.table("shipments").select("id, sap_shipment_id, status") \
+            .in_("sap_shipment_id", ["SHIP011", "SHIP012", "SHIP013"]).execute()
+        affected_ids = [s["sap_shipment_id"] for s in (ships.data or [])]
+
+        # Deactivate previous alerts for same HS
+        supabase.table("regulatory_alerts").update({"status": "resolved"}) \
+            .eq("hs_code", hs_code).eq("status", "active").execute()
+
+        # Insert new alert
+        alert_res = supabase.table("regulatory_alerts").insert({
+            "hs_code":               hs_code,
+            "old_rate":              old_rate,
+            "new_rate":              new_rate,
+            "effective_date":        effective_date,
+            "affected_shipment_ids": affected_ids,
+            "status":                "active"
+        }).execute()
+
+        # Flag affected shipments
+        for s in (ships.data or []):
+            if s["status"] in ("pending", "approved", "in_transit"):
+                supabase.table("shipments").update({"regulatory_flag": "rate_change_detected"}) \
+                    .eq("id", s["id"]).execute()
+
+        return {
+            "status":              "ok",
+            "alert":               alert_res.data[0] if alert_res.data else {},
+            "affected_shipments":  affected_ids
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ── Case 1: Recalculate (any analyst) ────────────────────────────
+@router.post("/api/shipments/{shipment_id}/recalculate")
+async def recalculate_shipment(shipment_id: str, body: RecalculateRequest, request: Request):
+    """Recalculate landed cost at new MFN rate. Returns old vs new duty figures."""
+    try:
+        analyst_id = body.analyst_id
+        alert_id   = body.alert_id
+
+        supabase = request.app.state.supabase
+        ship = supabase.table("shipments").select("id, status") \
+            .eq("sap_shipment_id", shipment_id).single().execute()
+        if not ship.data:
+            raise HTTPException(status_code=404, detail="Shipment not found")
+
+        # Resolve active alert
+        if alert_id:
+            a = supabase.table("regulatory_alerts").select("*").eq("id", alert_id).single().execute()
+            alert = a.data
+        else:
+            a = supabase.table("regulatory_alerts").select("*") \
+                .eq("status", "active").order("detected_at", desc=True).limit(1).execute()
+            alert = a.data[0] if a.data else None
+
+        if not alert:
+            raise HTTPException(status_code=404, detail="No active regulatory alert found")
+
+        # Capture old landed-cost figures
+        old_lc_res = supabase.table("landed_costs").select("*") \
+            .eq("shipment_id", ship.data["id"]) \
+            .order("created_at", desc=True).limit(1).execute()
+        old_lc = old_lc_res.data[0] if old_lc_res.data else {}
+
+        # Update mfn_rate_pct to new rate in fta_results
+        supabase.table("fta_results").update({"mfn_rate_pct": alert["new_rate"]}) \
+            .eq("shipment_id", ship.data["id"]).execute()
+
+        # Re-run Module C
+        from calculator.landed_cost import calculate_landed_cost
+        await calculate_landed_cost(shipment_id, supabase)
+
+        # Fetch freshly saved landed_costs row from DB (authoritative figures)
+        new_lc_res = supabase.table("landed_costs").select("*") \
+            .eq("shipment_id", ship.data["id"]) \
+            .order("created_at", desc=True).limit(1).execute()
+        new_lc = new_lc_res.data[0] if new_lc_res.data else {}
+
+        analyst = ANALYSTS.get(analyst_id, {"name": analyst_id})
+        supabase.table("audit_trail").insert({
+            "shipment_id":    ship.data["id"],
+            "event_type":     "regulatory_recalculation",
+            "analyst_id":     analyst_id,
+            "analyst_action": "recalculated",
+            "role_required":  "any",
+            "analyst_note": (
+                f"Case 1 recalculation: MFN rate {alert['old_rate']}% → {alert['new_rate']}% "
+                f"(effective {alert['effective_date']}). By {analyst['name']}."
+            )
+        }).execute()
+
+        # Compute old MFN scenario analytically from CIF and old rate,
+        # because old_lc may itself have been computed at the new rate
+        # (if the user ran recalculate before).
+        # MFN scenario = CIF_USD × (1 + rate%) + processing_USD  [LMW → no sales tax]
+        cif_usd  = float(new_lc.get("cif_value_usd",  0) or 0)
+        proc_usd = float(new_lc.get("other_fees_usd", 0) or 0)
+        old_rate = float(alert["old_rate"])
+        new_rate = float(alert["new_rate"])
+        computed_old_mfn = round(cif_usd * (1 + old_rate / 100) + proc_usd, 2)
+
+        return {
+            "status":               "ok",
+            "old_mfn_cost_usd":     computed_old_mfn,
+            "new_mfn_cost_usd":     new_lc.get("mfn_scenario_cost_usd", 0),
+            "old_landed_cost_usd":  old_lc.get("total_landed_cost_usd", 0),
+            "new_landed_cost_usd":  new_lc.get("total_landed_cost_usd", 0),
+            "old_fta_saving_usd":   old_lc.get("fta_saving_usd", 0),
+            "new_fta_saving_usd":   new_lc.get("fta_saving_usd", 0),
+            "alert":                alert,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ── Case 2: Re-approve at new rate (senior analyst only) ──────────
+@router.post("/api/shipments/{shipment_id}/reapprove-regulatory")
+async def reapprove_regulatory(shipment_id: str, body: ReapproveRequest, request: Request):
+    """Case 2: Re-approve or escalate after rate change on an approved shipment."""
+    try:
+        analyst_id = body.analyst_id
+        action     = body.action
+        note       = body.note or ""
+
+        analyst = ANALYSTS.get(analyst_id, {"name": analyst_id, "role": "analyst"})
+
+        supabase = request.app.state.supabase
+        ship = supabase.table("shipments").select("id, status") \
+            .eq("sap_shipment_id", shipment_id).single().execute()
+        if not ship.data:
+            raise HTTPException(status_code=404, detail="Shipment not found")
+
+        a = supabase.table("regulatory_alerts").select("*") \
+            .eq("status", "active").order("detected_at", desc=True).limit(1).execute()
+        alert = a.data[0] if a.data else None
+
+        if action == "approve_new_rate":
+            if alert:
+                supabase.table("fta_results").update({"mfn_rate_pct": alert["new_rate"]}) \
+                    .eq("shipment_id", ship.data["id"]).execute()
+                from calculator.landed_cost import calculate_landed_cost
+                await calculate_landed_cost(shipment_id, supabase)
+
+            supabase.table("shipments").update({
+                "status":           "approved",
+                "regulatory_flag":  "resolved"
+            }).eq("sap_shipment_id", shipment_id).execute()
+
+            supabase.table("audit_trail").insert({
+                "shipment_id":    ship.data["id"],
+                "event_type":     "regulatory_reapproval",
+                "analyst_id":     analyst_id,
+                "analyst_action": "reapproved_at_new_rate",
+                "role_required":  "senior_analyst",
+                "analyst_note": (
+                    f"Case 2 re-approval at new rate {alert['new_rate'] if alert else 'N/A'}% "
+                    f"by {analyst['name']}. {note}"
+                )
+            }).execute()
+            return {"status": "ok", "message": f"Re-approved at new rate by {analyst['name']}"}
+
+        elif action == "escalate_manager":
+            supabase.table("shipments").update({"regulatory_flag": "escalated_to_manager"}) \
+                .eq("sap_shipment_id", shipment_id).execute()
+
+            supabase.table("audit_trail").insert({
+                "shipment_id":    ship.data["id"],
+                "event_type":     "regulatory_escalation",
+                "analyst_id":     analyst_id,
+                "analyst_action": "escalated_to_manager",
+                "role_required":  "senior_analyst",
+                "analyst_note":   f"Case 2 escalated to Compliance Manager by {analyst['name']}. {note}"
+            }).execute()
+            return {"status": "ok", "message": "Escalated to Compliance Manager"}
+
+        else:
+            raise HTTPException(status_code=400, detail="action must be 'approve_new_rate' or 'escalate_manager'")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ── Case 3, Option 1: Claim in-transit exemption ──────────────────
+@router.post("/api/shipments/{shipment_id}/claim-intransit-exemption")
+async def claim_intransit_exemption(shipment_id: str, body: Case3ActionRequest, request: Request):
+    """Case 3 Option 1: File in-transit exemption per 19 CFR §101.1."""
+    try:
+        analyst_id = body.analyst_id
+        analyst = ANALYSTS.get(analyst_id, {"name": analyst_id, "role": "analyst"})
+
+        supabase = request.app.state.supabase
+        ship = supabase.table("shipments").select("*") \
+            .eq("sap_shipment_id", shipment_id).single().execute()
+        if not ship.data:
+            raise HTTPException(status_code=404, detail="Shipment not found")
+        s = ship.data
+
+        a = supabase.table("regulatory_alerts").select("*") \
+            .eq("status", "active").order("detected_at", desc=True).limit(1).execute()
+        alert = a.data[0] if a.data else {}
+
+        doc_package = {
+            "claim_type":          "in_transit_exemption",
+            "legal_basis":         "19 CFR §101.1 — goods laden before tariff effective date qualify for old rate at US port of entry",
+            "bill_of_lading":      s.get("bill_of_lading_number"),
+            "vessel_name":         s.get("vessel_name"),
+            "port_of_loading":     s.get("port_of_loading"),
+            "vessel_loading_date": str(s.get("vessel_loading_date", "")),
+            "estimated_arrival":   str(s.get("estimated_arrival_date", "")),
+            "effective_date":      str(alert.get("effective_date", "")),
+            "old_rate_pct":        alert.get("old_rate"),
+            "new_rate_pct":        alert.get("new_rate"),
+            "cbp_filing_note": (
+                f"File CBP Form 7501. Annotate: 'In-Transit Exemption per 19 CFR §101.1. "
+                f"Vessel laden {s.get('vessel_loading_date','')} — prior to effective date "
+                f"{alert.get('effective_date','')}. Duty assessed at old rate {alert.get('old_rate','')}%.'"
+            )
+        }
+
+        supabase.table("shipments").update({"regulatory_flag": "intransit_exemption_filed"}) \
+            .eq("sap_shipment_id", shipment_id).execute()
+
+        supabase.table("audit_trail").insert({
+            "shipment_id":     s["id"],
+            "event_type":      "regulatory_intransit_exemption",
+            "analyst_id":      analyst_id,
+            "analyst_action":  "claimed_intransit_exemption",
+            "role_required":   "senior_analyst",
+            "analyst_note": (
+                f"Case 3 Option 1: In-transit exemption claimed. "
+                f"B/L: {s.get('bill_of_lading_number')}. Laden {s.get('vessel_loading_date')} "
+                f"— before effective {alert.get('effective_date')}. Analyst: {analyst['name']}"
+            )
+        }).execute()
+
+        return {"status": "ok", "document_package": doc_package}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ── Case 3, Option 2: Accept new rate ────────────────────────────
+@router.post("/api/shipments/{shipment_id}/accept-new-rate")
+async def accept_new_rate(shipment_id: str, body: Case3ActionRequest, request: Request):
+    """Case 3 Option 2: Pay new tariff rate at CBP entry."""
+    try:
+        analyst_id = body.analyst_id
+        analyst = ANALYSTS.get(analyst_id, {"name": analyst_id, "role": "analyst"})
+        note    = body.note or ""
+
+        supabase = request.app.state.supabase
+        ship = supabase.table("shipments").select("id, status") \
+            .eq("sap_shipment_id", shipment_id).single().execute()
+        if not ship.data:
+            raise HTTPException(status_code=404, detail="Shipment not found")
+
+        a = supabase.table("regulatory_alerts").select("*") \
+            .eq("status", "active").order("detected_at", desc=True).limit(1).execute()
+        alert = a.data[0] if a.data else None
+
+        if alert:
+            supabase.table("fta_results").update({"mfn_rate_pct": alert["new_rate"]}) \
+                .eq("shipment_id", ship.data["id"]).execute()
+            from calculator.landed_cost import calculate_landed_cost
+            await calculate_landed_cost(shipment_id, supabase)
+
+        supabase.table("shipments").update({"regulatory_flag": "new_rate_accepted"}) \
+            .eq("sap_shipment_id", shipment_id).execute()
+
+        supabase.table("audit_trail").insert({
+            "shipment_id":    ship.data["id"],
+            "event_type":     "regulatory_new_rate_accepted",
+            "analyst_id":     analyst_id,
+            "analyst_action": "accepted_new_rate",
+            "role_required":  "senior_analyst",
+            "analyst_note": (
+                f"Case 3 Option 2: Accepted new CBP rate {alert['new_rate'] if alert else 'N/A'}%. "
+                f"OEM customer notified [mock email logged]. Analyst: {analyst['name']}. {note}"
+            )
+        }).execute()
+
+        return {
+            "status":  "ok",
+            "message": f"New rate {alert['new_rate'] if alert else 'N/A'}% accepted at CBP entry"
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ── Case 3, Option 3: Refer to customs counsel ────────────────────
+@router.post("/api/shipments/{shipment_id}/refer-counsel")
+async def refer_counsel(shipment_id: str, body: Case3ActionRequest, request: Request):
+    """Case 3 Option 3: Refer to licensed customs attorney — filing ON HOLD."""
+    try:
+        analyst_id = body.analyst_id
+        analyst = ANALYSTS.get(analyst_id, {"name": analyst_id, "role": "analyst"})
+        note    = (body.note or "").strip()
+        if not note:
+            raise HTTPException(status_code=400, detail="Senior analyst note is required for counsel referral")
+
+        supabase = request.app.state.supabase
+        ship = supabase.table("shipments").select("*") \
+            .eq("sap_shipment_id", shipment_id).single().execute()
+        if not ship.data:
+            raise HTTPException(status_code=404, detail="Shipment not found")
+        s = ship.data
+
+        a = supabase.table("regulatory_alerts").select("*") \
+            .eq("status", "active").order("detected_at", desc=True).limit(1).execute()
+        alert = a.data[0] if a.data else {}
+
+        referral_package = {
+            "referral_type": "customs_counsel",
+            "legal_mechanisms": [
+                "Binding Ruling Request (19 USC §177) — CBP official written ruling before entry",
+                "Protest (19 USC §1514) — challenge CBP rate after liquidation (90-day window)",
+                "Tariff engineering advice",
+                "Bonded warehouse strategy",
+                "First sale valuation"
+            ],
+            "case_facts": {
+                "shipment_id":        shipment_id,
+                "bill_of_lading":     s.get("bill_of_lading_number"),
+                "vessel_loading_date": str(s.get("vessel_loading_date", "")),
+                "estimated_arrival":  str(s.get("estimated_arrival_date", "")),
+                "effective_date":     str(alert.get("effective_date", "")),
+                "rate_dispute":       f"{alert.get('old_rate')}% → {alert.get('new_rate')}%",
+                "analyst_note":       note
+            },
+            "filing_status": "on_hold_pending_counsel"
+        }
+
+        supabase.table("shipments").update({
+            "status":          "customs_hold",
+            "regulatory_flag": "counsel_referred"
+        }).eq("sap_shipment_id", shipment_id).execute()
+
+        supabase.table("audit_trail").insert({
+            "shipment_id":     s["id"],
+            "event_type":      "regulatory_counsel_referral",
+            "analyst_id":      analyst_id,
+            "analyst_action":  "referred_to_counsel",
+            "role_required":   "senior_analyst",
+            "analyst_note": (
+                f"Case 3 Option 3: Referred to customs counsel. Filing ON HOLD. "
+                f"Analyst: {analyst['name']}. {note}"
+            )
+        }).execute()
+
+        return {
+            "status":           "ok",
+            "referral_package": referral_package,
+            "message":          "Referred to customs counsel — filing placed on hold"
+        }
+
     except HTTPException:
         raise
     except Exception as e:

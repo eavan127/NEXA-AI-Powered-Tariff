@@ -20,7 +20,14 @@ function confColor(c) {
   return 'var(--error)'
 }
 function statusColor(s) {
-  return{approved: 'var(--teal)', flagged: 'var(--error)', pending: 'var(--amber)', submitted: '#6366f1' }[s] || 'var(--muted)'
+  return {
+    approved:     'var(--teal)',
+    flagged:      'var(--error)',
+    pending:      'var(--amber)',
+    submitted:    '#6366f1',
+    in_transit:   'var(--teal)',
+    customs_hold: 'var(--amber)'
+  }[s] || 'var(--muted)'
 }
 function formatTime(iso) {
   if (!iso) return '—'

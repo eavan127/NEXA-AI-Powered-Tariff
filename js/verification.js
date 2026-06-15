@@ -4,9 +4,11 @@
  */
 
 /* ── State ────────────────────────────────────────────────────── */
-let SHIPMENTS    = []
-let currentId    = null
-let activeFilter = 'all'
+let SHIPMENTS         = []
+let currentId         = null
+let REGULATORY_ALERTS = []
+
+const ANALYST = { id: 'SARAH_LIM', name: 'Sarah Lim' }
 
 /* ── Boot ────────────────────────────────────────────────────── */
 async function init() {
@@ -16,10 +18,16 @@ async function init() {
       Loading queue…
     </div>`)
   try {
-    SHIPMENTS = await fetchShipments()
+    // Load regulatory alerts alongside shipments
+    const [shipData, alertData] = await Promise.all([
+      fetchShipments(),
+      apiFetch('/api/regulatory-alerts', 'GET').then(r => r.data || []).catch(() => [])
+    ])
+    SHIPMENTS         = shipData
+    REGULATORY_ALERTS = alertData
+    updateRegAlertBanner()
     updateQueueHeader()
     renderQueue()
-    updateBulkApproveBtn()
     updateNavBadge()
 
     // Deep-link: verification.html?id=SHIP001
@@ -41,61 +49,143 @@ async function init() {
   }
 }
 
+/* ── Regulatory alert sidebar banner ─────────────────────────── */
+function updateRegAlertBanner() {
+  const el = $('regAlert')
+  if (!el) return
+  const alert = REGULATORY_ALERTS[0]
+  if (!alert) { el.style.display = 'none'; return }
+  el.style.display = ''
+  setText('regAlertTitle', `US CBP Rate Change — HS ${alert.hs_code}`)
+  setText('regAlertBody',
+    `${alert.old_rate}% → ${alert.new_rate}% · Effective ${alert.effective_date} · ` +
+    `${(alert.affected_shipment_ids || []).length} shipment(s) affected`)
+}
+
 /* ── Queue header ────────────────────────────────────────────── */
 function updateQueueHeader() {
   const total    = SHIPMENTS.length
-  const reviewed = SHIPMENTS.filter(s => s.status === 'approved' || s.status === 'flagged').length
+  const reviewed = SHIPMENTS.filter(s =>
+    ['approved','flagged','submitted','customs_hold'].includes(s.status)
+  ).length
   const pct      = total > 0 ? Math.round(reviewed / total * 100) : 0
 
-  setText('queueMeta', `${reviewed} of ${total} reviewed · ${total - reviewed} remaining`)
+  const needsAction = SHIPMENTS.filter(s => {
+    const hasAlert = REGULATORY_ALERTS.some(a =>
+      Array.isArray(a.affected_shipment_ids) &&
+      a.affected_shipment_ids.includes(s.sap_shipment_id)
+    )
+    return s.status === 'flagged' || s.status === 'pending' || hasAlert
+  }).length
+
+  setText('queueMeta', `${needsAction} need action · ${reviewed}/${total} reviewed`)
   const fill = $('queueProgressFill')
   if (fill) fill.style.width = pct + '%'
 }
 
-/* ── Queue filter ────────────────────────────────────────────── */
-function getFiltered() {
-  if (activeFilter === 'flagged')  return SHIPMENTS.filter(s => s.status === 'flagged')
-  if (activeFilter === 'pending')  return SHIPMENTS.filter(s => s.status === 'pending')
-  if (activeFilter === 'approved') return SHIPMENTS.filter(s => s.status === 'approved')
-  return SHIPMENTS
-}
-
-function setQueueFilter(f, btn) {
-  activeFilter = f
-  document.querySelectorAll('.queue-panel .tab').forEach(b => b.classList.remove('active'))
-  btn.classList.add('active')
-  renderQueue()
-}
-
-/* ── Queue render ────────────────────────────────────────────── */
+/* ── Queue render — sectioned ─────────────────────────────────── */
 function renderQueue() {
-  const items = getFiltered()
-  if (!items.length) {
+  const all = SHIPMENTS
+  if (!all.length) {
     setHtml('queueList', `
       <div style="padding:24px;text-align:center;color:var(--muted-soft);font-size:12px">
-        No shipments in this category.
+        No shipments found.
       </div>`)
     return
   }
-  setHtml('queueList', items.map(renderQueueItem).join(''))
+
+  function shipHasAlert(s) {
+    return REGULATORY_ALERTS.some(a =>
+      Array.isArray(a.affected_shipment_ids) &&
+      a.affected_shipment_ids.includes(s.sap_shipment_id)
+    )
+  }
+
+
+  // Section 1: Needs Attention — escalated + compliance alerts
+  const escalated  = all.filter(s => s.status === 'flagged')
+  const alerted    = all.filter(s => s.status !== 'flagged' && shipHasAlert(s))
+  const attention  = [...escalated, ...alerted]
+
+  // Section 2: Pending review (no alert, not escalated)
+  const pending    = all.filter(s => s.status === 'pending' && !shipHasAlert(s))
+
+  // Section 3: Approved — ready to submit to SAP individually
+  const approved   = all.filter(s => s.status === 'approved' && !shipHasAlert(s))
+
+  // Section 4: In-Transit
+  const inTransit  = all.filter(s => s.status === 'in_transit' && !shipHasAlert(s))
+
+  // Section 5: Submitted / On Hold
+  const done       = all.filter(s => ['submitted','customs_hold'].includes(s.status) && !shipHasAlert(s))
+
+  function section(title, color, items, note) {
+    if (!items.length) return ''
+    return `
+      <div class="queue-section-head" style="color:${color}">
+        <span>${title}</span>
+        <span class="qs-count" style="background:${color}20;color:${color}">${items.length}</span>
+      </div>
+      ${note ? `<div class="queue-section-note">${note}</div>` : ''}
+      ${items.map(s => renderQueueItem(s, shipHasAlert(s))).join('')}`
+  }
+
+  let html = ''
+
+  if (attention.length) {
+    const note = (
+      (escalated.length ? 'Flagged — review and resolve.' : '') +
+      (alerted.length   ? ' Rate change detected — use compliance panel.' : '')
+    ).trim()
+    html += section('⚠ Needs Attention', 'var(--error)', attention, note)
+  }
+
+  if (pending.length) {
+    html += section('○ Pending Review', 'var(--amber)', pending, '')
+  }
+
+  if (approved.length) {
+    html += section('✓ Approved — Ready for SAP', 'var(--teal)', approved,
+      'Select a shipment and click Submit to SAP to send individually.')
+  }
+
+  if (inTransit.length) {
+    html += section('⛴ In-Transit', 'var(--teal)', inTransit, '')
+  }
+
+  if (done.length) {
+    html += section('↗ Submitted / On Hold', 'var(--muted)', done, '')
+  }
+
+  setHtml('queueList', html)
 }
 
-function renderQueueItem(s) {
+function renderQueueItem(s, hasActiveAlert) {
   const cls      = s.hs_classifications?.[0] || {}
   const conf     = cls.confidence_score || 0
   const selected = s.sap_shipment_id === currentId
 
-  const borderCol = s.status === 'approved' ? 'var(--teal)'
-                  : s.status === 'flagged'  ? 'var(--error)'
-                  : conf >= 95              ? 'var(--teal)'
-                  : conf >= 85              ? 'var(--amber)'
-                  :                          'var(--error)'
+  const borderCol = s.status === 'flagged'    ? 'var(--error)'
+                  : hasActiveAlert            ? '#d97706'
+                  : s.status === 'approved'   ? 'var(--teal)'
+                  : s.status === 'in_transit' ? 'var(--teal)'
+                  : conf >= 95                ? 'var(--teal)'
+                  : conf >= 85                ? 'var(--amber)'
+                  :                            'var(--error)'
 
-  const statusLabel = { approved: '✓ Approved', flagged: 'Escalated', pending: 'Pending' }[s.status] || s.status
-  const statusCol   = statusColor(s.status)
+  const statusLabel = {
+    approved:     '✓ Approved',
+    flagged:      '⚠ Escalated',
+    pending:      'Pending',
+    in_transit:   '⛴ In-Transit',
+    customs_hold: '⚖ On Hold',
+    submitted:    '✓ Submitted'
+  }[s.status] || s.status
+
+  const statusCol = hasActiveAlert && s.status !== 'flagged' ? '#d97706' : statusColor(s.status)
 
   return `
-  <div class="queue-item${selected ? ' selected' : ''}"
+  <div class="queue-item${selected ? ' selected' : ''}${s.status === 'flagged' ? ' qi-flagged' : ''}${hasActiveAlert && s.status !== 'flagged' ? ' qi-alerted' : ''}"
        onclick="selectItem('${s.sap_shipment_id}')"
        style="border-left-color:${borderCol}">
     <div class="qi-top">
@@ -105,6 +195,7 @@ function renderQueueItem(s) {
       </span>
     </div>
     <div class="qi-name" title="${s.product_description}">${s.product_description}</div>
+    ${hasActiveAlert ? `<div style="font-size:10px;color:#d97706;margin-top:2px;font-weight:500">🔔 Rate change</div>` : ''}
     <div class="qi-conf">
       <div class="conf-track">
         <div class="conf-fill" style="width:${conf}%;background:${confColor(conf)}"></div>
@@ -135,6 +226,8 @@ async function selectItem(id) {
 
   try {
     const r = await apiFetch(`/api/shipments/${id}`)
+    // Attach audit trail to shipment data so all render functions can access it
+    r.data.audit_trail = r.audit_trail || []
     renderDetailPanel(r.data)
 
     // Auto-run Module C if A and B are done but C hasn't run yet
@@ -146,6 +239,7 @@ async function selectItem(id) {
       try {
         await runModuleC(id)
         const refreshed = await apiFetch(`/api/shipments/${id}`)
+        refreshed.data.audit_trail = refreshed.audit_trail || []
         renderDetailPanel(refreshed.data)
         showToast(`✓ Module C complete for ${id}`)
       } catch (cErr) {
@@ -165,51 +259,41 @@ async function selectItem(id) {
 
 /* ── Nav pending badge ───────────────────────────────────────── */
 function updateNavBadge() {
-  const pending = SHIPMENTS.filter(s => s.status === 'pending' || s.status === 'flagged').length
-  setText('navPending', pending || '0')
-}
-
-/* ── Bulk approve ────────────────────────────────────────────── */
-function updateBulkApproveBtn() {
-  const eligible = SHIPMENTS.filter(s => {
-    const conf = s.hs_classifications?.[0]?.confidence_score || 0
-    return s.status === 'pending' && conf >= 95
-  })
-  const btn = $('bulkApproveBtn')
-  if (!btn) return
-  btn.disabled = eligible.length === 0
-  btn.innerHTML = `<i class="ti ti-checks"></i> Bulk Approve ≥95% (${eligible.length})`
-}
-
-async function doBulkApprove() {
-  const eligible = SHIPMENTS.filter(s => {
-    const conf = s.hs_classifications?.[0]?.confidence_score || 0
-    return s.status === 'pending' && conf >= 95
-  })
-  if (!eligible.length) return
-
-  const btn = $('bulkApproveBtn')
-  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader-2 spin"></i> Approving…' }
-
-  let done = 0
-  for (const s of eligible) {
-    try {
-      await approveShipment(s.sap_shipment_id)
-      s.status = 'approved'
-      done++
-    } catch (e) {
-      console.warn('Bulk approve failed for', s.sap_shipment_id, e.message)
-    }
+  const needsAction = SHIPMENTS.filter(s => {
+    const hasAlert = REGULATORY_ALERTS.some(a =>
+      Array.isArray(a.affected_shipment_ids) &&
+      a.affected_shipment_ids.includes(s.sap_shipment_id)
+    )
+    return s.status === 'pending' || s.status === 'flagged' || hasAlert
+  }).length
+  const el = $('navPending')
+  if (el) {
+    el.textContent = needsAction || ''
+    el.style.display = needsAction ? '' : 'none'
   }
-
-  showToast(`✓ Bulk approved ${done} shipments`)
-  SHIPMENTS = await fetchShipments()
-  updateQueueHeader()
-  renderQueue()
-  updateBulkApproveBtn()
-  updateNavBadge()
-  if (currentId) selectItem(currentId)
 }
+
+/* ── Submit single shipment to SAP ───────────────────────────── */
+async function doSubmitSingle(shipmentId) {
+  const btn = $('btnSubmitSingle')
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader-2 spin"></i> Submitting…' }
+  try {
+    const r = await apiFetch(`/api/shipments/${shipmentId}/submit-sap`, 'POST', {})
+    showToast(`✓ ${shipmentId} submitted to SAP — Doc: ${r.data?.sap_document_number || 'logged'}`)
+    SHIPMENTS = await fetchShipments()
+    updateQueueHeader()
+    renderQueue()
+    updateNavBadge()
+    // Refresh the detail panel to show submitted status
+    await selectItem(shipmentId)
+  } catch (e) {
+    showToast('SAP submission failed: ' + e.message, true)
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="ti ti-send"></i> Submit to SAP' }
+  }
+}
+
+/* ── (kept for completion-screen batch) ─────────────────────── */
+function updateBulkApproveBtn() { /* no-op — bulk approve removed from UI */ }
 
 init()
 
@@ -236,52 +320,151 @@ function renderDetailPanel(s) {
   $('detailHeader').style.display = ''
   $('actionBar').style.display    = ''
 
+  // Check if all 3 modules have run
+  const hasA = s.hs_classifications?.length > 0
+  const hasB = s.fta_results?.length > 0
+  const hasC = s.landed_costs?.length > 0
+  const modulesReady = hasA && hasB && hasC
+
+  // Compliance case overrides "approved" state if alert exists
+  const activeAlert = REGULATORY_ALERTS.find(a =>
+    Array.isArray(a.affected_shipment_ids) &&
+    a.affected_shipment_ids.includes(s.sap_shipment_id)
+  )
+  const DONE_FLAGS = ['resolved','escalated_to_manager','intransit_exemption_filed','new_rate_accepted','counsel_referred']
+  const complianceActioned = DONE_FLAGS.includes(s.regulatory_flag)
+  const needsComplianceAction = activeAlert && !complianceActioned && (s.status === 'approved' || s.status === 'in_transit' || s.status === 'customs_hold')
+
   // Show locked state if already reviewed, otherwise enable actions
   const reviewed = s.status === 'approved' || s.status === 'flagged'
-  if (reviewed) {
+  if (reviewed && !needsComplianceAction) {
     if (s.status === 'approved') {
-      setHtml('actionBar', `
-        <div style="flex:1;text-align:center;font-size:12px;color:var(--muted-soft);padding:4px 0">
-          <span style="font-weight:600;color:${statusColor(s.status)}">✓ Approved — no further action needed</span>
-          &nbsp;·&nbsp;
-          <a href="audit.html" style="color:var(--primary);text-decoration:none">View audit trail →</a>
+      const complianceDone = ['escalated_to_manager','resolved','intransit_exemption_filed','new_rate_accepted','counsel_referred'].includes(s.regulatory_flag)
+      const doneLabel = s.regulatory_flag === 'resolved'
+        ? { icon: 'ti-circle-check', color: 'var(--teal)', text: 'Re-approved at new rate — no further action needed' }
+        : { icon: 'ti-arrow-up-right', color: 'var(--amber)', text: 'Flagged to Manager — awaiting decision' }
+      setHtml('actionBar', complianceDone ? `
+        <div style="flex:1;display:flex;align-items:center;gap:10px">
+          <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:${doneLabel.color};font-weight:600">
+            <i class="ti ${doneLabel.icon}" style="font-size:15px"></i>
+            ${doneLabel.text}
+          </div>
+          <div style="flex:1"></div>
+          <a href="audit.html" class="btn" style="background:transparent;border-color:var(--hairline);color:var(--muted)">
+            <i class="ti ti-clock-history"></i> Audit Trail
+          </a>
+        </div>` : `
+        <div style="flex:1;display:flex;align-items:center;gap:10px">
+          <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--teal);font-weight:600">
+            <i class="ti ti-circle-check" style="font-size:15px"></i>
+            Approved
+          </div>
+          <div style="flex:1"></div>
+          <button class="btn btn-primary" id="btnSubmitSingle" onclick="doSubmitSingle('${s.sap_shipment_id}')"
+            style="background:var(--primary);border-color:var(--primary)">
+            <i class="ti ti-send"></i> Submit to SAP
+          </button>
+          <a href="audit.html" class="btn" style="background:transparent;border-color:var(--hairline);color:var(--muted)">
+            <i class="ti ti-clock-history"></i> Audit Trail
+          </a>
         </div>`)
     } else {
-      // Flagged/Escalated — Senior Analyst can resolve
+      // Flagged — show escalation note + resolve actions
+      const escalationEntry = (s.audit_trail || []).find(a =>
+        a.analyst_action === 'escalated' || a.event_type === 'analyst_escalation'
+      )
+      const escalationNote = escalationEntry?.analyst_note || ''
+      const notesMatch = escalationNote.match(/Notes:\s*(.+)$/i)
+      const displayNote = notesMatch ? notesMatch[1] : escalationNote
+
       setHtml('actionBar', `
         <div style="display:flex;flex-direction:column;gap:8px;width:100%">
-          <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:#92400e;background:#fffbeb;border:1px solid #f59e0b;border-radius:6px;padding:8px 12px">
-            <i class="ti ti-alert-triangle" style="font-size:14px;flex-shrink:0"></i>
-            <span><strong>Escalated — awaiting senior analyst.</strong> Approve or override to unblock SAP writeback.</span>
-            <a href="audit.html" style="color:var(--primary);text-decoration:none;margin-left:auto;white-space:nowrap">View audit trail →</a>
-          </div>
+          ${displayNote ? `
+          <div style="padding:8px 12px;background:#fffbeb;border:1px solid #f59e0b;border-radius:var(--r-md);font-size:11.5px;color:#92400e;display:flex;gap:8px;align-items:flex-start">
+            <i class="ti ti-message-circle" style="font-size:13px;flex-shrink:0;margin-top:1px"></i>
+            <div><div style="font-weight:600;margin-bottom:2px">Flagged — your note</div><div>${displayNote}</div></div>
+          </div>` : `
+          <div style="padding:8px 12px;background:#fffbeb;border:1px solid #f59e0b;border-radius:var(--r-md);font-size:11.5px;color:#92400e">
+            <i class="ti ti-alert-triangle" style="font-size:13px"></i>
+            <strong> Flagged for review.</strong> Approve or override HS code to unblock.
+          </div>`}
           <div style="display:flex;gap:8px">
             <button class="btn btn-primary" id="btnResolveApprove" onclick="doResolveApprove()"
               style="flex:1;justify-content:center;background:var(--teal);border-color:var(--teal)">
-              <i class="ti ti-check"></i> Approve as Senior
+              <i class="ti ti-check"></i> Approve
             </button>
             <button class="btn" id="btnResolveOverride" onclick="toggleResolveOverrideForm()"
               style="flex:1;justify-content:center;background:rgba(59,130,246,.08);border-color:rgba(59,130,246,.3);color:#1d4ed8">
               <i class="ti ti-edit"></i> Override HS Code
             </button>
+            <a href="audit.html" class="btn" style="flex:0;background:transparent;border-color:var(--hairline);color:var(--muted)">
+              <i class="ti ti-clock-history"></i>
+            </a>
           </div>
         </div>`)
     }
     $('actionBar').style.display = ''
   } else {
-    setHtml('actionBar', `
-      <button class="btn btn-primary" id="btnApprove" onclick="doApprove()"
-        style="flex:1;justify-content:center;background:var(--teal);border-color:var(--teal)">
-        <i class="ti ti-check"></i> Approve
-      </button>
-      <button class="btn" id="btnEdit" onclick="toggleEditForm()"
-        style="flex:1;justify-content:center;background:rgba(59,130,246,.08);border-color:rgba(59,130,246,.3);color:#1d4ed8">
-        <i class="ti ti-edit"></i> Edit HS Code
-      </button>
-      <button class="btn" id="btnEscalate" onclick="toggleEscalateForm()"
-        style="flex:1;justify-content:center;background:rgba(232,165,90,.08);border-color:rgba(232,165,90,.3);color:#92400e">
-        <i class="ti ti-arrow-up-right"></i> Escalate
-      </button>`)
+    if (!modulesReady) {
+      // Modules haven't run — block approval entirely
+      const missing = [!hasA && 'Module A', !hasB && 'Module B', !hasC && 'Module C'].filter(Boolean).join(', ')
+      setHtml('actionBar', `
+        <div style="flex:1;display:flex;align-items:center;gap:10px;padding:4px 0">
+          <div style="flex:1;padding:8px 12px;background:rgba(232,165,90,.08);border:1px solid rgba(232,165,90,.3);border-radius:var(--r-md);font-size:11.5px;color:#92400e;display:flex;align-items:center;gap:8px">
+            <i class="ti ti-alert-triangle" style="font-size:14px;flex-shrink:0"></i>
+            <span><strong>${missing} must run before approving.</strong> Go to
+              <a href="shipments.html" style="color:var(--primary);text-decoration:none">All Shipments</a>
+              to run the pipeline.
+            </span>
+          </div>
+          <button class="btn" onclick="toggleEscalateForm()"
+            style="background:rgba(232,165,90,.08);border-color:rgba(232,165,90,.3);color:#92400e;flex-shrink:0">
+            <i class="ti ti-arrow-up-right"></i> Escalate
+          </button>
+        </div>`)
+    } else if (activeAlert && s.status === 'pending') {
+      // Case 1 only — lock standard Approve, analyst must use compliance panel below
+      setHtml('actionBar', `
+        <div style="flex:1;padding:8px 12px;background:rgba(232,165,90,.08);border:1px solid rgba(232,165,90,.3);border-radius:var(--r-md);font-size:11.5px;color:#92400e;display:flex;align-items:center;gap:8px">
+          <i class="ti ti-lock" style="font-size:14px;flex-shrink:0"></i>
+          <span><strong>Approval locked.</strong> Rate change detected — recalculate and approve via the <strong>Regulatory Alert panel</strong> below.</span>
+        </div>`)
+    } else if (activeAlert && !complianceActioned) {
+      // Case 2 / 3 — action not yet taken, point to compliance panel
+      setHtml('actionBar', `
+        <div style="flex:1;padding:8px 12px;background:rgba(232,165,90,.06);border:1px solid rgba(232,165,90,.2);border-radius:var(--r-md);font-size:11.5px;color:#92400e;display:flex;align-items:center;gap:8px">
+          <i class="ti ti-alert-triangle" style="font-size:14px;flex-shrink:0"></i>
+          <span>Rate change requires action — see <strong>Regulatory Alert panel</strong> below.</span>
+        </div>`)
+    } else if (activeAlert && complianceActioned && s.regulatory_flag === 'escalated_to_manager') {
+      // Flagged to manager — nothing left to do
+      setHtml('actionBar', `
+        <div style="flex:1;display:flex;align-items:center;gap:10px">
+          <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--amber);font-weight:600">
+            <i class="ti ti-arrow-up-right" style="font-size:15px"></i>
+            Flagged to Manager — awaiting decision
+          </div>
+          <div style="flex:1"></div>
+          <a href="audit.html" class="btn" style="background:transparent;border-color:var(--hairline);color:var(--muted)">
+            <i class="ti ti-clock-history"></i> Audit Trail
+          </a>
+        </div>`)
+    } else {
+      // Normal — all modules done, no alert
+      setHtml('actionBar', `
+        <button class="btn btn-primary" id="btnApprove" onclick="doApprove()"
+          style="flex:1;justify-content:center;background:var(--teal);border-color:var(--teal)">
+          <i class="ti ti-check"></i> Approve
+        </button>
+        <button class="btn" id="btnEdit" onclick="toggleEditForm()"
+          style="flex:1;justify-content:center;background:rgba(59,130,246,.08);border-color:rgba(59,130,246,.3);color:#1d4ed8">
+          <i class="ti ti-edit"></i> Edit HS Code
+        </button>
+        <button class="btn" id="btnEscalate" onclick="toggleEscalateForm()"
+          style="flex:1;justify-content:center;background:rgba(232,165,90,.08);border-color:rgba(232,165,90,.3);color:#92400e">
+          <i class="ti ti-arrow-up-right"></i> Escalate
+        </button>`)
+    }
     $('actionBar').style.display = ''
   }
 
@@ -290,6 +473,7 @@ function renderDetailPanel(s) {
     renderModuleACard(cls) +
     renderModuleBCard(fta, cif) +
     renderModuleCCard(lc, s) +
+    renderCompliancePanel(s, hasA, hasB, hasC) +
     '<div id="inlineFormContainer"></div>'
   )
 }
@@ -879,7 +1063,6 @@ async function refreshAndAdvance(id, newStatus) {
 
   updateQueueHeader()
   renderQueue()
-  updateBulkApproveBtn()
   updateNavBadge()
 
   // Check if all items are reviewed
@@ -958,7 +1141,6 @@ async function doSubmitBatch() {
       showToast(`⚠ ${errors.length} failed: ${errors.map(e=>e.shipment_id).join(', ')}`, true)
     }
     // Reload to reflect "submitted" status
-    SHIPMENTS = await fetchShipments()
     updateQueueHeader()
     renderQueue()
     showSubmissionResult(submitted)
@@ -989,4 +1171,563 @@ function showSubmissionResult(submitted) {
         </div>
       </div>
     </div>`)
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   COMPLIANCE PANEL — Cases 1 / 2 / 3
+   ════════════════════════════════════════════════════════════════ */
+
+function renderCompliancePanel(s, hasA, hasB, hasC) {
+  const alert = REGULATORY_ALERTS.find(a =>
+    Array.isArray(a.affected_shipment_ids) &&
+    a.affected_shipment_ids.includes(s.sap_shipment_id)
+  )
+  if (!alert) return ''
+
+  if (s.status === 'pending')    return renderCase1Panel(s, alert, hasB, hasC)
+  if (s.status === 'approved')   return renderCase2Panel(s, alert)
+  if (s.status === 'in_transit') return renderCase3Panel(s, alert)
+  return ''
+}
+
+/* ── Case 1: pending — Recalculate at new rate ─────────────────── */
+function renderCase1Panel(s, alert, hasB, hasC) {
+  return `
+  <div class="det-card" id="complianceCase1">
+    <div class="det-head">
+      <i class="ti ti-alert-triangle" style="color:var(--amber);font-size:15px"></i>
+      <span class="det-title">Regulatory Alert — Case 1</span>
+      <span style="font-size:11px;font-weight:600;color:var(--amber)">Pending Review</span>
+    </div>
+    <div class="det-body">
+
+      <div class="compliance-banner amber">
+        <i class="ti ti-refresh-alert"></i>
+        <div>
+          <div class="banner-title">Rates Updated — Review Required</div>
+          <div class="banner-body">
+            US CBP tariff for HS <span style="font-family:var(--mono)">${alert.hs_code}</span>
+            changed ${alert.old_rate}% → ${alert.new_rate}% effective ${alert.effective_date}.
+            Recalculate before approving.
+          </div>
+        </div>
+      </div>
+
+      <div class="rate-compare-row">
+        <div class="rc-item">
+          <div class="rc-label">Old MFN Rate</div>
+          <div class="rc-val old">${alert.old_rate}%</div>
+        </div>
+        <div class="rc-arrow"><i class="ti ti-arrow-right"></i></div>
+        <div class="rc-item">
+          <div class="rc-label">New MFN Rate</div>
+          <div class="rc-val new">${alert.new_rate}%</div>
+        </div>
+        <div class="rc-item">
+          <div class="rc-label">Effective</div>
+          <div style="font-size:12px;font-weight:600;font-family:var(--mono);color:var(--ink)">${alert.effective_date}</div>
+        </div>
+      </div>
+
+      <div id="case1RecalcResult"></div>
+
+      <div style="display:flex;gap:var(--sp-sm)">
+        <button class="btn btn-primary" id="btnCase1Recalc"
+          onclick="doCase1Recalculate('${s.sap_shipment_id}','${alert.id}')">
+          <i class="ti ti-calculator"></i> Recalculate at New Rate
+        </button>
+        ${!hasB || !hasC
+          ? `<div style="font-size:11px;color:var(--muted);align-self:center;padding:0 4px">
+               <i class="ti ti-lock" style="font-size:12px"></i>
+               Run ${[!hasB&&'Module B',!hasC&&'Module C'].filter(Boolean).join(' + ')} first
+             </div>`
+          : `<button class="btn" id="btnCase1Approve" onclick="doCase1Approve()"
+               style="background:rgba(93,184,166,.08);border-color:rgba(93,184,166,.35);color:var(--teal)">
+               <i class="ti ti-check"></i> Approve at New Rate
+             </button>`
+        }
+      </div>
+
+    </div>
+  </div>`
+}
+
+/* ── Case 2: approved — Re-approve or flag to manager ─────────── */
+function renderCase2Panel(s, alert) {
+  const flag = s.regulatory_flag || ''
+
+  // Already actioned — show done state
+  if (flag === 'resolved') {
+    return `
+    <div class="det-card" id="complianceCase2">
+      <div class="det-head">
+        <i class="ti ti-shield-check" style="color:var(--teal);font-size:15px"></i>
+        <span class="det-title">Regulatory Alert — Case 2</span>
+        <span style="font-size:11px;font-weight:600;color:var(--teal)">Re-Approved</span>
+      </div>
+      <div class="det-body">
+        <div class="compliance-banner teal">
+          <i class="ti ti-circle-check"></i>
+          <div><div class="banner-title">Re-approved at new rate (${alert.new_rate}%)</div>
+          <div class="banner-body">Shipment approved under revised tariff. Audit logged.</div></div>
+        </div>
+      </div>
+    </div>`
+  }
+  if (flag === 'escalated_to_manager') {
+    return `
+    <div class="det-card" id="complianceCase2">
+      <div class="det-head">
+        <i class="ti ti-arrow-up-right" style="color:var(--amber);font-size:15px"></i>
+        <span class="det-title">Regulatory Alert — Case 2</span>
+        <span style="font-size:11px;font-weight:600;color:var(--amber)">Flagged to Manager</span>
+      </div>
+      <div class="det-body">
+        <div class="compliance-banner amber">
+          <i class="ti ti-alert-triangle"></i>
+          <div><div class="banner-title">Referred to Compliance Manager</div>
+          <div class="banner-body">Pending manager review. No further action needed from you.</div></div>
+        </div>
+      </div>
+    </div>`
+  }
+
+  const auditApproval = (s.audit_trail || []).find(a => a.analyst_action === 'approved')
+  const approvalDate  = auditApproval
+    ? new Date(auditApproval.created_at).toLocaleDateString('en-MY', { day:'2-digit', month:'short', year:'numeric' })
+    : '—'
+  const delta = (alert.new_rate - alert.old_rate).toFixed(1)
+
+  return `
+  <div class="det-card" id="complianceCase2">
+    <div class="det-head">
+      <i class="ti ti-shield-exclamation" style="color:var(--error);font-size:15px"></i>
+      <span class="det-title">Regulatory Alert — Case 2</span>
+      <span style="font-size:11px;font-weight:600;color:var(--error)">Re-Approval Required</span>
+    </div>
+    <div class="det-body">
+
+      <div class="compliance-banner red">
+        <i class="ti ti-alert-circle"></i>
+        <div>
+          <div class="banner-title">Regulatory Review Required</div>
+          <div class="banner-body">
+            Rate changed after approval but before vessel loading.
+            A senior analyst must re-approve or escalate to Compliance Manager.
+          </div>
+        </div>
+      </div>
+
+      <div class="rate-compare-row">
+        <div class="rc-item">
+          <div class="rc-label">Old Rate</div>
+          <div class="rc-val old">${alert.old_rate}%</div>
+        </div>
+        <div class="rc-arrow"><i class="ti ti-arrow-right"></i></div>
+        <div class="rc-item">
+          <div class="rc-label">New Rate</div>
+          <div class="rc-val new">${alert.new_rate}%</div>
+        </div>
+        <div class="rc-item">
+          <div class="rc-label">Rate Increase</div>
+          <div class="rc-val expose">+${delta}pp</div>
+        </div>
+      </div>
+
+      <div style="font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.05em;margin-bottom:6px">KEY DATES</div>
+      <div class="dates-grid">
+        <div class="date-cell">
+          <div class="dc-label">Original Approval</div>
+          <div class="dc-val">${approvalDate}</div>
+        </div>
+        <div class="date-cell">
+          <div class="dc-label">Regulatory Effective</div>
+          <div class="dc-val" style="color:var(--error)">${alert.effective_date}</div>
+        </div>
+        <div class="date-cell">
+          <div class="dc-label">Vessel Loading</div>
+          <div class="dc-val" style="color:var(--muted)">Not yet departed</div>
+        </div>
+        <div class="date-cell">
+          <div class="dc-label">HS Code</div>
+          <div class="dc-val">${alert.hs_code}</div>
+        </div>
+      </div>
+
+      <div style="font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.05em;margin-bottom:8px">ACTION REQUIRED</div>
+      <div style="display:flex;gap:var(--sp-sm);margin-bottom:var(--sp-sm)">
+        <button class="btn btn-primary" style="flex:1;justify-content:center"
+          onclick="doCase2Action('${s.sap_shipment_id}','approve_new_rate')">
+          <i class="ti ti-check"></i> Approve at New Rate (${alert.new_rate}%)
+        </button>
+        <button class="btn" style="flex:1;justify-content:center;background:rgba(232,165,90,.08);border-color:rgba(232,165,90,.3);color:#92400e"
+          onclick="doCase2Action('${s.sap_shipment_id}','escalate_manager')">
+          <i class="ti ti-arrow-up-right"></i> Flag to Manager
+        </button>
+      </div>
+      <div class="field">
+        <label style="display:block;font-size:11px;font-weight:500;color:var(--muted);margin-bottom:4px">Note (optional)</label>
+        <textarea id="case2Note" rows="2"
+          style="width:100%;padding:7px 10px;border:1px solid var(--hairline);border-radius:var(--r-md);font-size:12.5px;font-family:var(--sans);background:var(--canvas);color:var(--ink);resize:vertical;box-sizing:border-box"
+          placeholder="Add justification or context…"></textarea>
+      </div>
+
+    </div>
+  </div>`
+}
+
+/* ── Case 3: in_transit — Exemption / accept / counsel ────────── */
+function renderCase3Panel(s, alert) {
+  const flag = s.regulatory_flag || ''
+
+  // Already actioned — show done state
+  const doneStates = {
+    intransit_exemption_filed: { icon: 'ti-building-bank', color: 'var(--teal)', label: 'Exemption Filed',
+      title: `In-transit exemption filed — duty at old rate (${alert.old_rate}%)`,
+      body: 'CBP filing submitted under 19 CFR §101.1. Duty assessed at old rate at port of entry. Audit logged.' },
+    new_rate_accepted: { icon: 'ti-receipt-2', color: 'var(--error)', label: 'New Rate Accepted',
+      title: `New rate accepted — duty at ${alert.new_rate}%`,
+      body: 'Shipment will be assessed at new CBP rate at entry. Landed cost updated. OEM notified.' },
+    counsel_referred: { icon: 'ti-gavel', color: 'var(--amber)', label: 'On Hold — Counsel',
+      title: 'Referred to customs counsel — filing ON HOLD',
+      body: 'Legal review in progress. Binding ruling or protest to be filed by counsel.' },
+    escalated_to_manager: { icon: 'ti-arrow-up-right', color: 'var(--amber)', label: 'Flagged to Manager',
+      title: 'Flagged to Compliance Manager — awaiting decision',
+      body: 'Pending manager review. No further action needed from you.' },
+  }
+  if (doneStates[flag]) {
+    const d = doneStates[flag]
+    return `
+    <div class="det-card" id="complianceCase3">
+      <div class="det-head">
+        <i class="ti ${d.icon}" style="color:${d.color};font-size:15px"></i>
+        <span class="det-title">Regulatory Alert — Case 3 (In-Transit)</span>
+        <span style="font-size:11px;font-weight:600;color:${d.color}">${d.label}</span>
+      </div>
+      <div class="det-body">
+        <div class="compliance-banner ${d.color === 'var(--teal)' ? 'teal' : d.color === 'var(--error)' ? 'red' : 'amber'}">
+          <i class="ti ${d.icon}"></i>
+          <div><div class="banner-title">${d.title}</div>
+          <div class="banner-body">${d.body}</div></div>
+        </div>
+      </div>
+    </div>`
+  }
+
+  const loadDate    = s.vessel_loading_date    || ''
+  const arrivalDate = s.estimated_arrival_date || ''
+  const effDate     = alert.effective_date     || ''
+  const isEligible  = !!(loadDate && effDate && loadDate < effDate && s.transport_mode === 'SEA')
+  const daysDiff    = loadDate && effDate
+    ? Math.round((new Date(effDate) - new Date(loadDate)) / 86400000)
+    : null
+
+  return `
+  <div class="det-card" id="complianceCase3">
+    <div class="det-head">
+      <i class="ti ti-ship" style="color:${isEligible ? 'var(--teal)' : 'var(--error)'};font-size:15px"></i>
+      <span class="det-title">Regulatory Alert — Case 3 (In-Transit)</span>
+      <span style="font-size:11px;font-weight:600;color:${isEligible ? 'var(--teal)' : 'var(--error)'}">
+        ${isEligible ? 'Exemption Eligible' : 'Under Review'}
+      </span>
+    </div>
+    <div class="det-body">
+
+      ${isEligible ? `
+      <div class="compliance-banner teal">
+        <i class="ti ti-circle-check"></i>
+        <div>
+          <div class="banner-title">In-Transit Exemption Eligible</div>
+          <div class="banner-body">
+            Vessel laden ${daysDiff !== null ? daysDiff + ' day' + (daysDiff !== 1 ? 's' : '') : ''}
+            before effective date. Under 19 CFR §101.1, duty assessed at old rate (${alert.old_rate}%) at US port of entry.
+          </div>
+        </div>
+      </div>` : `
+      <div class="compliance-banner red">
+        <i class="ti ti-alert-circle"></i>
+        <div>
+          <div class="banner-title">New Rate Likely Applies</div>
+          <div class="banner-body">
+            Vessel loading (${loadDate || 'unknown'}) is on or after effective date (${effDate}).
+            In-transit exemption may not apply — review with counsel.
+          </div>
+        </div>
+      </div>`}
+
+      <div style="font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.05em;margin-bottom:6px">DATE ANALYSIS</div>
+      <div class="dates-grid">
+        <div class="date-cell">
+          <div class="dc-label">Vessel Loading Date</div>
+          <div class="dc-val" style="color:${isEligible ? 'var(--teal)' : 'var(--body)'}">${loadDate || '—'}</div>
+        </div>
+        <div class="date-cell">
+          <div class="dc-label">Regulatory Effective Date</div>
+          <div class="dc-val" style="color:var(--error)">${effDate || '—'}</div>
+        </div>
+        <div class="date-cell">
+          <div class="dc-label">Transport Mode</div>
+          <div class="dc-val">${s.transport_mode || '—'}</div>
+        </div>
+        <div class="date-cell">
+          <div class="dc-label">Est. US Arrival</div>
+          <div class="dc-val">${arrivalDate || '—'}</div>
+        </div>
+      </div>
+
+      ${isEligible ? `
+      <div style="font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.05em;margin-bottom:6px">DOCUMENTATION PACKAGE</div>
+      <div class="doc-package-box">
+        <div class="dp-title">In-Transit Exemption Claim — 19 CFR §101.1</div>
+        <div class="doc-row">
+          <span class="dr-label">Bill of Lading</span>
+          <span class="dr-val">${s.bill_of_lading_number || '—'}</span>
+        </div>
+        <div class="doc-row">
+          <span class="dr-label">Vessel</span>
+          <span class="dr-val">${s.vessel_name || '—'}</span>
+        </div>
+        <div class="doc-row">
+          <span class="dr-label">Port of Loading</span>
+          <span class="dr-val">${s.port_of_loading || '—'}</span>
+        </div>
+        <div class="doc-row">
+          <span class="dr-label">Est. US Arrival</span>
+          <span class="dr-val">${arrivalDate || '—'}</span>
+        </div>
+        <div class="doc-row">
+          <span class="dr-label">CBP Provision</span>
+          <span class="dr-val">19 CFR §101.1</span>
+        </div>
+        <div class="doc-row">
+          <span class="dr-label">Duty at old rate (${alert.old_rate}%)</span>
+          <span class="dr-val" style="color:var(--teal)">Applied at entry</span>
+        </div>
+        <div class="doc-row">
+          <span class="dr-label">Duty at new rate (${alert.new_rate}%)</span>
+          <span class="dr-val" style="color:var(--muted);text-decoration:line-through">Avoided</span>
+        </div>
+      </div>` : ''}
+
+      <div style="font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.05em;margin-bottom:8px">SELECT ACTION</div>
+      <div class="radio-cards" id="case3RadioCards">
+        <label class="radio-card selected" onclick="selectCase3Option(this,'option1')">
+          <input type="radio" name="case3opt" value="option1" checked>
+          <div>
+            <div class="rc-title"><i class="ti ti-building-bank" style="color:var(--teal);margin-right:4px"></i>Forward to Customs Broker</div>
+            <div class="rc-desc">Claim in-transit exemption under 19 CFR §101.1. Goods laden before effective date qualify for old rate at US port of entry.</div>
+            <div class="rc-outcome green">↓ Duty assessed at ${alert.old_rate}% (old rate) — exemption claim filed</div>
+          </div>
+        </label>
+        <label class="radio-card" onclick="selectCase3Option(this,'option2')">
+          <input type="radio" name="case3opt" value="option2">
+          <div>
+            <div class="rc-title"><i class="ti ti-receipt-2" style="color:var(--error);margin-right:4px"></i>Accept New Rate</div>
+            <div class="rc-desc">Pay ${alert.new_rate}% at CBP entry. Standard entry, no special filing. Use when loading date is ambiguous or certainty is preferred over dispute.</div>
+            <div class="rc-outcome red">↑ Duty assessed at ${alert.new_rate}% (new rate) — no dispute</div>
+          </div>
+        </label>
+        <label class="radio-card" onclick="selectCase3Option(this,'option3')">
+          <input type="radio" name="case3opt" value="option3">
+          <div>
+            <div class="rc-title"><i class="ti ti-gavel" style="color:var(--amber);margin-right:4px"></i>Refer to Customs Counsel</div>
+            <div class="rc-desc">Licensed attorney via Binding Ruling (19 USC §177), Protest (19 USC §1514), or tariff engineering. Filing placed <strong>ON HOLD</strong>.</div>
+            <div class="rc-outcome amber">⚖ Filing on hold — legal review required</div>
+          </div>
+        </label>
+      </div>
+      <div class="field" style="margin-bottom:var(--sp-sm)">
+        <label style="display:block;font-size:11px;font-weight:500;color:var(--muted);margin-bottom:4px">
+          Senior analyst note <span style="color:var(--error)" id="case3NoteRequired"></span>
+        </label>
+        <textarea id="case3Note" rows="2"
+          style="width:100%;padding:7px 10px;border:1px solid var(--hairline);border-radius:var(--r-md);font-size:12.5px;font-family:var(--sans);background:var(--canvas);color:var(--ink);resize:vertical;box-sizing:border-box"
+          placeholder="Loading date confirmation, counsel referral reason, or context…"></textarea>
+      </div>
+      <div style="display:flex;gap:var(--sp-sm);align-items:center;flex-wrap:wrap">
+        <button class="btn btn-primary" id="btnCase3Confirm" onclick="doCase3Action('${s.sap_shipment_id}')">
+          <i class="ti ti-check"></i> Confirm Action
+        </button>
+        <button class="btn" onclick="doCase3FlagManager('${s.sap_shipment_id}')"
+          style="background:rgba(232,165,90,.08);border-color:rgba(232,165,90,.3);color:#92400e">
+          <i class="ti ti-arrow-up-right"></i> Flag to Manager
+        </button>
+        <span style="font-size:11px;color:var(--muted-soft);margin-left:auto">
+          CBP entry window: est.&nbsp;<span style="font-family:var(--mono);font-weight:600;color:var(--body)">${arrivalDate || 'TBD'}</span>
+        </span>
+      </div>
+
+    </div>
+  </div>`
+}
+
+/* ── Case 3 radio card selection ──────────────────────────────── */
+function selectCase3Option(cardEl, opt) {
+  document.querySelectorAll('#case3RadioCards .radio-card').forEach(c => c.classList.remove('selected'))
+  cardEl.classList.add('selected')
+  const noteRequired = $('case3NoteRequired')
+  if (noteRequired) noteRequired.textContent = opt === 'option3' ? '*' : ''
+}
+
+/* ── Case 1: approve after recalculation ─────────────────────── */
+async function doCase1Approve() {
+  if (!currentId) return
+  const btn = $('btnCase1Approve')
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader-2 spin"></i> Approving…' }
+  try {
+    // Use reapprove-regulatory so regulatory_flag is set to 'resolved' — prevents Case 2 re-trigger
+    await apiFetch(`/api/shipments/${currentId}/reapprove-regulatory`, 'POST',
+      { analyst_id: ANALYST.id, action: 'approve_new_rate', note: 'Case 1: approved at new rate after recalculation.' }
+    )
+    showToast(`✓ ${currentId} approved at new rate`)
+    SHIPMENTS = await fetchShipments()
+    await refreshAndAdvance(currentId, 'approved')
+  } catch (e) {
+    showToast('Approve failed: ' + e.message, true)
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="ti ti-check"></i> Approve at New Rate' }
+  }
+}
+
+/* ── Case 1 action ────────────────────────────────────────────── */
+async function doCase1Recalculate(shipmentId, alertId) {
+  const btn = $('btnCase1Recalc')
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader-2 spin"></i> Recalculating…' }
+  try {
+    const r = await apiFetch(`/api/shipments/${shipmentId}/recalculate`, 'POST',
+      { analyst_id: ANALYST.id, alert_id: alertId }
+    )
+    const fmt = n => Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    const resultEl = $('case1RecalcResult')
+    if (resultEl) {
+      const oldMfn  = Number(r.old_mfn_cost_usd || 0)
+      const newMfn  = Number(r.new_mfn_cost_usd  || 0)
+      const delta   = newMfn - oldMfn
+      const isSaving    = delta < 0
+      const deltaLabel  = isSaving ? 'MFN Exposure Reduced' : 'Additional MFN Exposure'
+      const deltaColor  = isSaving ? 'var(--teal)' : 'var(--error)'
+      const deltaIcon   = isSaving ? '▼' : '▲'
+      const deltaBg     = isSaving ? 'rgba(93,184,166,.08)' : 'rgba(220,38,38,.07)'
+      const deltaBorder = isSaving ? 'rgba(93,184,166,.25)' : 'rgba(220,38,38,.25)'
+
+      resultEl.innerHTML = `
+        <div style="margin-bottom:var(--sp-sm);padding:10px 12px;background:rgba(93,184,166,.06);border-radius:var(--r-sm);border:1px solid rgba(93,184,166,.2)">
+          <div style="font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.05em;margin-bottom:8px">RECALCULATION RESULT — MFN Rate ${r.alert?.old_rate}% → ${r.alert?.new_rate}%</div>
+          <div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;margin-bottom:8px">
+            <div>
+              <div style="font-size:10px;color:var(--muted-soft);margin-bottom:2px">Old MFN Scenario</div>
+              <div style="font-size:14px;font-weight:700;font-family:var(--mono);color:var(--muted-soft);text-decoration:line-through">$${fmt(oldMfn)}</div>
+            </div>
+            <div style="color:var(--muted);font-size:13px">→</div>
+            <div>
+              <div style="font-size:10px;color:var(--muted-soft);margin-bottom:2px">New MFN Scenario</div>
+              <div style="font-size:14px;font-weight:700;font-family:var(--mono);color:${deltaColor}">$${fmt(newMfn)}</div>
+            </div>
+          </div>
+          <div style="padding:7px 10px;background:${deltaBg};border:1px solid ${deltaBorder};border-radius:6px;display:flex;align-items:center;gap:8px">
+            <span style="font-size:16px;color:${deltaColor}">${deltaIcon}</span>
+            <div>
+              <div style="font-size:10px;color:var(--muted-soft);margin-bottom:1px">${deltaLabel}</div>
+              <div style="font-size:13px;font-weight:700;font-family:var(--mono);color:${deltaColor}">${isSaving ? '-' : '+'}$${fmt(Math.abs(delta))}</div>
+            </div>
+            <div style="margin-left:auto;text-align:right">
+              <div style="font-size:10px;color:var(--muted-soft);margin-bottom:1px">FTA Saving (updated)</div>
+              <div style="font-size:13px;font-weight:700;font-family:var(--mono);color:var(--teal)">$${fmt(r.new_fta_saving_usd)}</div>
+            </div>
+          </div>
+          <div style="margin-top:8px;font-size:11px;color:var(--teal)">
+            ✓ Recalculated — ready to approve.
+          </div>
+        </div>`
+    }
+    showToast(`✓ ${shipmentId} recalculated at ${r.alert?.new_rate}% MFN rate`)
+    // Refresh local shipment data
+    const refreshed = await apiFetch(`/api/shipments/${shipmentId}`, 'GET')
+    const local = SHIPMENTS.find(s => s.sap_shipment_id === shipmentId)
+    if (local && refreshed.data) Object.assign(local, refreshed.data)
+  } catch (e) {
+    showToast('Recalculate failed: ' + e.message, true)
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="ti ti-calculator"></i> Recalculate at New Rate' }
+  }
+}
+
+/* ── Case 2 action ────────────────────────────────────────────── */
+async function doCase2Action(shipmentId, action) {
+  const note = ($('case2Note')?.value || '').trim()
+  const label = action === 'approve_new_rate' ? 'Re-approving…' : 'Escalating…'
+  const btn = action === 'approve_new_rate'
+    ? document.querySelector('#complianceCase2 .btn-primary')
+    : document.querySelector('#complianceCase2 .btn:last-of-type')
+
+  if (btn) { btn.disabled = true; btn.innerHTML = `<i class="ti ti-loader-2 spin"></i> ${label}` }
+  try {
+    await apiFetch(`/api/shipments/${shipmentId}/reapprove-regulatory`, 'POST',
+      { analyst_id: ANALYST.id, action, note }
+    )
+    const msg = action === 'approve_new_rate'
+      ? `✓ ${shipmentId} re-approved at new rate`
+      : `✓ ${shipmentId} escalated to Compliance Manager`
+    showToast(msg)
+    SHIPMENTS = await fetchShipments()
+    await selectItem(shipmentId)
+  } catch (e) {
+    showToast((e.message || 'Action failed'), true)
+    if (btn) { btn.disabled = false; btn.innerHTML = btn.dataset.label || label }
+  }
+}
+
+/* ── Case 3 action ────────────────────────────────────────────── */
+async function doCase3Action(shipmentId) {
+  const selected = document.querySelector('#case3RadioCards input[type=radio]:checked')?.value || 'option1'
+  const note     = ($('case3Note')?.value || '').trim()
+  if (selected === 'option3' && !note) {
+    $('case3Note')?.style.setProperty('border-color', 'var(--error)')
+    setText('case3NoteRequired', '* required')
+    showToast('A note is required for counsel referral', true)
+    return
+  }
+  $('case3Note')?.style.removeProperty('border-color')
+
+  const endpointMap = {
+    option1: 'claim-intransit-exemption',
+    option2: 'accept-new-rate',
+    option3: 'refer-counsel'
+  }
+  const endpoint = endpointMap[selected]
+  const btn = $('btnCase3Confirm')
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader-2 spin"></i> Processing…' }
+  try {
+    const r = await apiFetch(`/api/shipments/${shipmentId}/${endpoint}`, 'POST',
+      { analyst_id: ANALYST.id, note }
+    )
+    const msgs = {
+      option1: `✓ In-transit exemption filed — duty at old rate. Audit logged.`,
+      option2: `✓ New rate accepted — landed cost updated. OEM notified.`,
+      option3: `✓ Referred to counsel — filing ON HOLD.`
+    }
+    showToast(msgs[selected])
+    if (selected === 'option1' && r.document_package) {
+      console.log('[CBP Doc Package]', r.document_package)
+    }
+    SHIPMENTS = await fetchShipments()
+    await selectItem(shipmentId)
+  } catch (e) {
+    showToast((e.message || 'Action failed'), true)
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="ti ti-check"></i> Confirm Action' }
+  }
+}
+
+/* ── Case 3: Flag to Manager ─────────────────────────────────── */
+async function doCase3FlagManager(shipmentId) {
+  const note = ($('case3Note')?.value || '').trim()
+  try {
+    await apiFetch(`/api/shipments/${shipmentId}/reapprove-regulatory`, 'POST',
+      { analyst_id: ANALYST.id, action: 'escalate_manager', note: note || 'Case 3 in-transit — flagged to manager for decision.' }
+    )
+    showToast(`✓ ${shipmentId} flagged to manager for review.`)
+    SHIPMENTS = await fetchShipments()
+    await selectItem(shipmentId)
+  } catch (e) {
+    showToast((e.message || 'Flag failed'), true)
+  }
 }
