@@ -68,6 +68,10 @@ app.add_middleware(
         "http://localhost:5500",   # VS Code Live Server
         "http://127.0.0.1:5500",   # VS Code Live Server (IP form)
         "http://127.0.0.1:8000",   # backend (IP form)
+        "http://localhost:8080",   # python -m http.server (frontend, per CLAUDE.md)
+        "http://127.0.0.1:8080",
+        "http://localhost:8090",   # python -m http.server (preview)
+        "http://127.0.0.1:8090",
         "null",                    # file:// direct open in browser
     ],
     allow_credentials=True,
