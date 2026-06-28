@@ -29,6 +29,12 @@
   --warning:        #d4a017;
   --error:          #c64545;
 
+  /* Elevation — subtle layered shadows (Stripe/Linear-style), not flat borders alone */
+  --shadow-xs: 0 1px 2px rgba(0,43,73,.04);
+  --shadow-sm: 0 1px 2px rgba(0,43,73,.04), 0 1px 6px rgba(0,43,73,.06);
+  --shadow-md: 0 2px 4px rgba(0,43,73,.05), 0 8px 24px rgba(0,43,73,.08);
+  --shadow-lg: 0 8px 16px rgba(0,43,73,.06), 0 20px 48px rgba(0,43,73,.14);
+
   /* Typography */
   --serif: 'Inter', system-ui, sans-serif;
   --sans:  'Inter', system-ui, sans-serif;
@@ -207,6 +213,7 @@ input, select, textarea { font-family: var(--sans); }
   position: sticky;
   top: 0;
   z-index: 100;
+  box-shadow: var(--shadow-xs);
 }
 
 .topbar-crumb {
@@ -360,7 +367,10 @@ input, select, textarea { font-family: var(--sans); }
   border: 1px solid var(--hairline);
   border-radius: var(--r-lg);
   padding: var(--sp-lg) var(--sp-md);
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow .15s, transform .15s;
 }
+.kpi:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
 
 .kpi-label {
   font-size: 12px;
@@ -405,6 +415,7 @@ input, select, textarea { font-family: var(--sans); }
   border: 1px solid var(--hairline);
   border-radius: var(--r-lg);
   overflow: hidden;
+  box-shadow: var(--shadow-sm);
 }
 
 .panel-head {
@@ -579,6 +590,7 @@ input, select, textarea { font-family: var(--sans); }
   border: 1px solid var(--hairline);
   border-radius: var(--r-lg);
   overflow: hidden;
+  box-shadow: var(--shadow-sm);
 }
 
 .det-head {
@@ -759,7 +771,7 @@ input, select, textarea { font-family: var(--sans); }
   border-radius: var(--r-xl);
   width: 460px;
   max-width: 92vw;
-  box-shadow: 0 20px 60px rgba(20,20,19,.12);
+  box-shadow: var(--shadow-lg);
   transform: translateY(10px);
   transition: transform 0.20s;
 }
@@ -1009,7 +1021,7 @@ input, select, textarea { font-family: var(--sans); }
   cursor: pointer;
   transition: box-shadow .15s, transform .15s;
 }
-.fta-card:hover { box-shadow: 0 4px 20px rgba(20,20,19,.08); transform: translateY(-1px); }
+.fta-card:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
 .fta-card-top   { height: 3px; }
 .fta-card-body  { padding: 16px; }
 .fta-card-name  { font-size: 15px; font-weight: 700; color: var(--ink); margin-bottom: 2px; font-family: var(--mono); }

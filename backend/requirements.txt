@@ -16,3 +16,4 @@ reportlab
 openpyxl
 pandas
 numpy
+matplotlib

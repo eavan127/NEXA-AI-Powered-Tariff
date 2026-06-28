@@ -45,3 +45,4 @@ class Case3ActionRequest(BaseModel):
 
 class ChatbotQueryRequest(BaseModel):
     message: str
+    role: str = "analyst"  # "analyst" | "manager"

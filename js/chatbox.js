@@ -10,8 +10,15 @@
   const QUICK_PROMPTS = [
     "What's our savings today?",
     'Show landed cost this month',
-    'Average savings per shipment',
+    'Predict next week’s savings',
   ]
+
+  function getRole() {
+    return localStorage.getItem('nexaRole') === 'manager' ? 'manager' : 'analyst'
+  }
+  function setRole(role) {
+    localStorage.setItem('nexaRole', role)
+  }
 
   function money(n) {
     return '$' + (+n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -83,6 +90,11 @@
     }
     #nexaChatSend:hover { background: var(--primary-active); }
     #nexaChatSend:disabled { opacity: .5; cursor: default; }
+    #nexaRoleToggle { display: flex; gap: 2px; background: rgba(255,255,255,.12); border-radius: var(--r-pill); padding: 2px; margin-right: 4px; }
+    .nexa-role-btn { border: none; background: none; color: var(--on-dark-soft); font-size: 10.5px; font-weight: 600; padding: 4px 9px; border-radius: var(--r-pill); cursor: pointer; }
+    .nexa-role-btn.active { background: var(--teal); color: #fff; }
+    .nexa-citations { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--hairline); font-size: 10.5px; color: var(--muted); line-height: 1.6; }
+    .nexa-citations b { color: var(--ink); display: block; margin-bottom: 2px; }
 
     /* ── Demo / incident-simulation controls ──────────────────── */
     #nexaDemoBtn {
@@ -137,6 +149,10 @@
       <div id="nexaChatHead">
         <i class="ti ti-robot"></i>
         <div class="nexa-title"><b>NEXA Assistant</b><span>Savings &amp; landed cost analytics</span></div>
+        <div id="nexaRoleToggle">
+          <button class="nexa-role-btn" data-role="analyst">Analyst</button>
+          <button class="nexa-role-btn" data-role="manager">Manager</button>
+        </div>
         <button id="nexaChatClose" title="Close"><i class="ti ti-x"></i></button>
       </div>
       <div id="nexaChatBody"></div>
@@ -230,22 +246,9 @@
     setInterval(refreshStatus, 15000)
   }
 
-  function renderChart(chart) {
-    if (!chart || !chart.labels || !chart.labels.length) return ''
-    const max = Math.max(...chart.values, 1)
-    const rows = chart.labels.map((lbl, i) => {
-      const v = chart.values[i] || 0
-      const w = Math.max(Math.round(v / max * 100), v > 0 ? 4 : 0)
-      return `
-      <div class="bar-chart-row" style="margin-bottom:6px">
-        <span class="bar-lbl" style="width:54px;font-size:11px">${lbl}</span>
-        <div class="bar-track" style="height:14px">
-          <div class="bar-fill" style="width:${w}%;background:var(--primary)"></div>
-        </div>
-        <span class="bar-val" style="font-size:11px;min-width:60px">${money(v)}</span>
-      </div>`
-    }).join('')
-    return `<div style="margin-top:10px">${rows}</div>`
+  function renderChart(chartImage) {
+    if (!chartImage) return ''
+    return `<img src="${chartImage}" alt="Chart" style="display:block;width:100%;margin-top:10px;border-radius:var(--r-md);border:1px solid var(--hairline)">`
   }
 
   function renderStats(stats) {
@@ -258,12 +261,17 @@
       </div>`
   }
 
-  function appendMsg(body, role, html) {
+  function appendMsg(body, sender, html) {
     const div = document.createElement('div')
-    div.className = 'nexa-msg ' + role
+    div.className = 'nexa-msg ' + sender
     div.innerHTML = html
     body.appendChild(div)
     body.scrollTop = body.scrollHeight
+  }
+
+  function renderCitations(citations) {
+    if (!citations || !citations.length) return ''
+    return `<div class="nexa-citations"><b>Sources</b>${citations.map(c => `<div>• ${c}</div>`).join('')}</div>`
   }
 
   function init() {
@@ -274,8 +282,17 @@
     const send  = panel.querySelector('#nexaChatSend')
 
     appendMsg(body, 'bot',
-      "Hi, I'm the NEXA Assistant. Ask me about FTA duty savings or landed cost — " +
-      "e.g. \"what's our savings today\" or \"show cost this month\".")
+      "Hi, I'm the NEXA Assistant. Ask me about FTA duty savings, landed cost, or a savings " +
+      "forecast — e.g. \"what's our savings today\" or \"predict next week's savings\". " +
+      "Answers are framed for your selected role and cite their sources below.")
+
+    const roleBtns = panel.querySelectorAll('.nexa-role-btn')
+    function refreshRoleUI() {
+      const role = getRole()
+      roleBtns.forEach(b => b.classList.toggle('active', b.dataset.role === role))
+    }
+    roleBtns.forEach(b => b.addEventListener('click', () => { setRole(b.dataset.role); refreshRoleUI() }))
+    refreshRoleUI()
 
     btn.addEventListener('click', () => panel.classList.toggle('open'))
     panel.querySelector('#nexaChatClose').addEventListener('click', () => panel.classList.remove('open'))
@@ -294,11 +311,13 @@
         const res = await fetch(`${API_BASE}/api/chatbot/query`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: msg }),
+          body: JSON.stringify({ message: msg, role: getRole() }),
         })
         const data = await res.json()
         if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`)
-        appendMsg(body, 'bot', (data.reply || 'No response.') + renderChart(data.chart) + renderStats(data.stats))
+        appendMsg(body, 'bot',
+          (data.reply || 'No response.').replace(/\n/g, '<br>') +
+          renderChart(data.chart_image) + renderStats(data.stats) + renderCitations(data.citations))
       } catch (e) {
         appendMsg(body, 'bot', `<span style="color:var(--error)">Couldn't reach NEXA backend: ${e.message}</span>`)
       } finally {

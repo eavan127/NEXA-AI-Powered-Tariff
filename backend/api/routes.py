@@ -199,7 +199,7 @@ async def chatbot_query(body: ChatbotQueryRequest, request: Request):
     try:
         from analytics.chat_analytics import answer_chat_query
         supabase = request.app.state.supabase
-        result = answer_chat_query(body.message, supabase)
+        result = answer_chat_query(body.message, supabase, body.role)
         return {"status": "ok", **result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
