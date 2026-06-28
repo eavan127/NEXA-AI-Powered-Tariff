@@ -204,11 +204,11 @@ function renderModuleACard(cls) {
   const bColor = passed ? 'var(--teal)' : 'var(--amber)'
   const bText  = passed ? '✓ Auto Passed' : '⚠ Low Confidence'
   const badge  = $('modABadge')
-  if (badge) { badge.textContent = bText; badge.style.cssText = `background:${passed?'rgba(93,184,166,.12)':'rgba(232,165,90,.12)'};color:${bColor}` }
+  if (badge) { badge.textContent = bText; badge.style.cssText = `background:${passed?'rgba(0,145,107,.12)':'rgba(232,165,90,.12)'};color:${bColor}` }
 
   const conf = cls.confidence_score || 0
   const barW = Math.min(conf, 100)
-  const barColor = conf >= 95 ? '#5db8a6' : conf >= 85 ? '#e8a55a' : '#c64545'
+  const barColor = conf >= 95 ? '#00916b' : conf >= 85 ? '#e8a55a' : '#c64545'
   const thresh = 85
 
   // RAG sources
@@ -281,7 +281,7 @@ function renderModuleBCard(fta, cif) {
   const badge = $('modBBadge')
   if (badge) {
     badge.textContent = bLabel
-    badge.style.cssText = `background:${bStatus==='fta_applied'?'rgba(93,184,166,.12)':bStatus==='mfn_applied'?'rgba(232,165,90,.12)':'rgba(198,69,69,.10)'};color:${bColor}`
+    badge.style.cssText = `background:${bStatus==='fta_applied'?'rgba(0,145,107,.12)':bStatus==='mfn_applied'?'rgba(232,165,90,.12)':'rgba(198,69,69,.10)'};color:${bColor}`
   }
 
   // Cap at 100 to guard against dirty legacy records (e.g. rate=853400)
@@ -357,7 +357,7 @@ function renderModuleCCard(cls, fta, cif, lc) {
   if (badge) {
     if (lc) {
       badge.textContent = '✓ Complete'
-      badge.style.cssText = 'background:rgba(93,184,166,.12);color:var(--teal)'
+      badge.style.cssText = 'background:rgba(0,145,107,.12);color:var(--teal)'
     } else {
       badge.textContent = '⬅ Build This'
       badge.style.cssText = 'background:rgba(217,119,6,.10);color:#d97706'
@@ -391,7 +391,7 @@ function renderModuleCCard(cls, fta, cif, lc) {
       Malaysian RMCD landed cost breakdown
     </div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
-      ${isLmw ? `<span style="padding:3px 10px;border-radius:9999px;background:rgba(93,184,166,.1);color:var(--teal);font-size:11px;font-weight:600">✓ LMW Exempt</span>` : ''}
+      ${isLmw ? `<span style="padding:3px 10px;border-radius:9999px;background:rgba(0,145,107,.1);color:var(--teal);font-size:11px;font-weight:600">✓ LMW Exempt</span>` : ''}
       ${hasAdd ? `<span style="padding:3px 10px;border-radius:9999px;background:rgba(232,165,90,.1);color:var(--amber);font-size:11px;font-weight:600">⚠ ADD Applied</span>` : ''}
     </div>
     <div class="formula-row">

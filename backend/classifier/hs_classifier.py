@@ -207,6 +207,36 @@ def write_classification_result(
 
 
 # ─────────────────────────────────────────
+# RESILIENCE: local rules engine fallback
+# Used when the AI pipeline is in degraded mode, or the inbound
+# description failed the prompt-injection guard. Never auto-passes —
+# every row lands as flagged_low_confidence regardless of match.
+# ─────────────────────────────────────────
+def write_local_fallback_result(
+    shipment_id: str,
+    e2open_hs_code: str,
+    local_result: dict,
+    supabase: Client
+) -> dict:
+    record = {
+        "shipment_id": shipment_id,
+        "e2open_hs_code": e2open_hs_code,
+        "ai_hs_code": local_result["hs_code"],
+        "confidence_score": local_result["confidence"],
+        "reasoning_text": local_result["reasoning_text"],
+        "rag_sources": [],
+        "final_hs_code": local_result["hs_code"],
+        "module_a_status": "flagged_low_confidence",
+    }
+
+    result = supabase.table("hs_classifications") \
+        .insert(record) \
+        .execute()
+
+    return result.data[0]
+
+
+# ─────────────────────────────────────────
 # MAIN FUNCTION
 # ─────────────────────────────────────────
 def classify_hs_code(shipment_id: str, supabase: Client) -> dict:
@@ -220,23 +250,65 @@ def classify_hs_code(shipment_id: str, supabase: Client) -> dict:
     real_uuid = shipment_data["shipment_id"]
     print(f"[Module A] Description: {product_description}")
 
-    print("[Module A] Step 2 — Embedding description...")
-    embedding = embed_description(product_description)
-    print(f"[Module A] Embedding done ({len(embedding)} dimensions)")
+    # ── Resilience layer ──────────────────────────────────────────
+    from resilience.prompt_guard import scan_for_injection
+    from resilience.degraded_mode import is_degraded, trip_degraded_mode
+    from resilience.rules_engine import classify_local
 
-    print("[Module A] Step 3 — Searching hs_reference...")
-    top_3_matches = search_hs_reference(embedding, supabase)
-    print(f"[Module A] Top match: {top_3_matches[0]['hs_code']} "
-          f"({round(top_3_matches[0]['similarity']*100,1)}%)")
+    guard = scan_for_injection(product_description)
+    if guard["suspicious"]:
+        trip_degraded_mode(
+            supabase,
+            source="prompt_injection_guard",
+            alert_type="prompt_injection",
+            message=(
+                f"Suspicious input blocked on shipment {shipment_id} before reaching the LLM. "
+                f"Patterns: {guard['patterns_matched'] or ['hidden unicode characters']}. "
+                "AI pipeline frozen — local rules engine active, SAP write-back locked."
+            ),
+            detail=guard,
+        )
+        print(f"[Module A] BLOCKED — prompt injection guard tripped for {shipment_id}")
+        local_result = classify_local(guard["cleaned_text"])
+        return write_local_fallback_result(real_uuid, e2open_hs_code, local_result, supabase)
 
-    print("[Module A] Step 4 — Asking qwen2.5:1.5b...")
-    llama_result = ask_llama_for_classification(
-        product_description,
-        top_3_matches,
-        e2open_hs_code
-    )
-    print(f"[Module A] Decision: {llama_result['ai_hs_code']} "
-          f"({llama_result['confidence_score']}% confidence)")
+    if is_degraded(supabase):
+        print(f"[Module A] System in degraded mode — using local rules engine for {shipment_id}")
+        local_result = classify_local(product_description)
+        return write_local_fallback_result(real_uuid, e2open_hs_code, local_result, supabase)
+
+    try:
+        print("[Module A] Step 2 — Embedding description...")
+        embedding = embed_description(product_description)
+        print(f"[Module A] Embedding done ({len(embedding)} dimensions)")
+
+        print("[Module A] Step 3 — Searching hs_reference...")
+        top_3_matches = search_hs_reference(embedding, supabase)
+        print(f"[Module A] Top match: {top_3_matches[0]['hs_code']} "
+              f"({round(top_3_matches[0]['similarity']*100,1)}%)")
+
+        print("[Module A] Step 4 — Asking qwen2.5:1.5b...")
+        llama_result = ask_llama_for_classification(
+            product_description,
+            top_3_matches,
+            e2open_hs_code
+        )
+        print(f"[Module A] Decision: {llama_result['ai_hs_code']} "
+              f"({llama_result['confidence_score']}% confidence)")
+    except Exception as e:
+        trip_degraded_mode(
+            supabase,
+            source="ollama_pipeline",
+            alert_type="feed_down",
+            message=(
+                f"AI pipeline (Ollama) unreachable while classifying {shipment_id}: {e}. "
+                "Falling back to local rules engine — SAP write-back locked."
+            ),
+            detail={"error": str(e)},
+        )
+        print(f"[Module A] AI pipeline failed — falling back to local rules engine: {e}")
+        local_result = classify_local(product_description)
+        return write_local_fallback_result(real_uuid, e2open_hs_code, local_result, supabase)
 
     print("[Module A] Step 5 — Writing to hs_classifications...")
     final_record = write_classification_result(

@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Request
 from api.schemas import (ProcessBatchRequest, ApproveRequest, RejectRequest,
                          OverrideHSRequest, DryRunPdfRequest,
                          MockRateChangeRequest, RecalculateRequest,
-                         ReapproveRequest, Case3ActionRequest)
+                         ReapproveRequest, Case3ActionRequest, ChatbotQueryRequest)
 from classifier.hs_classifier import classify_hs_code
 from ingestion.sap_connector import submit_to_sap as write_duty_to_sap
 from fastapi.responses import Response
@@ -19,6 +19,17 @@ ANALYSTS = {
     "JAMES_TAN":  {"name": "James Tan",  "role": "senior_analyst"},
 }
 _ROLE_LEVEL = {"junior_analyst": 0, "senior_analyst": 1, "compliance_manager": 2}
+
+def _require_not_degraded(supabase):
+    """Freeze SAP write-back while the resilience circuit breaker is tripped
+    (regulatory feed down or prompt-injection block) — see backend/resilience/."""
+    from resilience.degraded_mode import is_degraded
+    if is_degraded(supabase):
+        raise HTTPException(
+            status_code=423,
+            detail="System in degraded mode — SAP write-back frozen pending Compliance Manager review.",
+        )
+
 
 def _require_role(analyst_id: str, required_role: str):
     analyst = ANALYSTS.get(analyst_id)
@@ -103,6 +114,93 @@ async def get_shipment_detail(shipment_id: str, request: Request):
         }
     except HTTPException:
         raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ── Resilience — degraded-mode circuit breaker & incident demo ───
+@router.get("/api/admin/system-status")
+async def get_system_status(request: Request):
+    try:
+        from resilience.degraded_mode import is_degraded, get_active_alerts
+        supabase = request.app.state.supabase
+        return {
+            "status": "ok",
+            "degraded": is_degraded(supabase),
+            "active_alerts": get_active_alerts(supabase),
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/api/admin/simulate-incident/feed-down")
+async def simulate_feed_down(request: Request):
+    """Demo control — simulates a regulatory feed outage without touching
+    a real external site. Trips the same circuit breaker a real failure would."""
+    try:
+        from resilience.degraded_mode import trip_degraded_mode
+        supabase = request.app.state.supabase
+        trip_degraded_mode(
+            supabase,
+            source="jkdm_regulatory_feed",
+            alert_type="feed_down",
+            message=(
+                "[SIMULATED] JKDM regulatory feed unreachable (3 consecutive failures). "
+                "AI pipeline frozen — local rules engine active, SAP write-back locked."
+            ),
+            detail={"simulated": True},
+        )
+        return {"status": "ok", "message": "Simulated feed outage — degraded mode active"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/api/admin/simulate-incident/prompt-injection")
+async def simulate_prompt_injection(request: Request):
+    """Demo control — simulates the prompt-injection guard tripping on a
+    poisoned shipment description, without needing a live attack payload."""
+    try:
+        from resilience.degraded_mode import trip_degraded_mode
+        supabase = request.app.state.supabase
+        trip_degraded_mode(
+            supabase,
+            source="prompt_injection_guard",
+            alert_type="prompt_injection",
+            message=(
+                "[SIMULATED] Suspicious input blocked before reaching the LLM "
+                "(matched: 'ignore previous instructions'). AI pipeline frozen — "
+                "local rules engine active, SAP write-back locked."
+            ),
+            detail={"simulated": True, "patterns_matched": ["ignore previous instructions"]},
+        )
+        return {"status": "ok", "message": "Simulated prompt injection — degraded mode active"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/api/admin/resolve-incident")
+async def resolve_incident(request: Request):
+    try:
+        body = await request.json()
+        resolved_by = body.get("resolved_by", "Compliance Manager")
+        note        = body.get("note", "Resolved via NEXA UI")
+
+        from resilience.degraded_mode import resolve_degraded_mode
+        supabase = request.app.state.supabase
+        resolve_degraded_mode(supabase, resolved_by, note)
+        return {"status": "ok", "message": "Incident resolved — degraded mode cleared"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ── Chatbox — pandas/numpy-backed savings & cost analytics ───────
+@router.post("/api/chatbot/query")
+async def chatbot_query(body: ChatbotQueryRequest, request: Request):
+    try:
+        from analytics.chat_analytics import answer_chat_query
+        supabase = request.app.state.supabase
+        result = answer_chat_query(body.message, supabase)
+        return {"status": "ok", **result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -395,6 +493,7 @@ async def submit_batch_to_sap(request: Request):
             raise HTTPException(status_code=400, detail="No shipment IDs provided")
 
         supabase  = request.app.state.supabase
+        _require_not_degraded(supabase)
         submitted = []
         failed    = []
 
@@ -652,6 +751,7 @@ async def submit_shipment_sap(shipment_id: str, request: Request):
     try:
         from calculator.sap_submitter import submit_shipment_to_sap
         supabase = request.app.state.supabase
+        _require_not_degraded(supabase)
         result = await submit_shipment_to_sap(shipment_id, supabase)
         if "error" in result:
             raise HTTPException(status_code=400, detail=result["error"])
@@ -668,6 +768,7 @@ async def submit_batch_sap(request: Request):
     try:
         from calculator.sap_submitter import submit_batch_to_sap
         supabase = request.app.state.supabase
+        _require_not_degraded(supabase)
         body = await request.json()
         ids  = body.get("shipment_ids") or []   # [] = submit all approved
         if not ids:

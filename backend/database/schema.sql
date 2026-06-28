@@ -155,6 +155,23 @@ CREATE TABLE IF NOT EXISTS config (
     value  TEXT
 );
 
+-- system_alerts — high-priority incidents for the Compliance Manager
+-- (regulatory feed outages, prompt-injection blocks). Drives the
+-- degraded-mode circuit breaker in backend/resilience/.
+CREATE TABLE IF NOT EXISTS system_alerts (
+    id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    severity      TEXT NOT NULL DEFAULT 'high' CHECK(severity IN ('low','medium','high')),
+    source        TEXT NOT NULL,
+    alert_type    TEXT NOT NULL CHECK(alert_type IN ('feed_down','prompt_injection','other')),
+    message       TEXT NOT NULL,
+    detail        JSONB DEFAULT '{}',
+    status        TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','resolved')),
+    resolved_by   TEXT,
+    resolved_note TEXT,
+    created_at    TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX ON system_alerts(status);
+
 -- pipeline_logs — ingestion event audit trail (hash checks, parse results)
 CREATE TABLE IF NOT EXISTS pipeline_logs (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),

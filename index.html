@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>NEXA · AI Tariff Intelligence</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.2.0/tabler-icons.min.css">
 <link rel="stylesheet" href="css/styles.css">
 <style>
@@ -24,7 +24,7 @@
   top: -60px; right: -60px;
   width: 260px; height: 260px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(204,120,92,.18) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(0,144,207,.18) 0%, transparent 70%);
   pointer-events: none;
 }
 .search-eyebrow {
@@ -38,7 +38,7 @@
 .search-headline {
   font-family: var(--serif);
   font-size: 30px;
-  font-weight: 300;
+  font-weight: 600;
   color: var(--on-dark);
   letter-spacing: -0.3px;
   margin-bottom: 24px;
@@ -93,7 +93,7 @@
   transition: all .12s;
 }
 .chip:hover {
-  background: rgba(204,120,92,.22);
+  background: rgba(0,144,207,.22);
   border-color: var(--primary);
   color: var(--on-dark);
 }
@@ -115,8 +115,8 @@
   font-size: 11px;
   font-weight: 500;
   color: var(--primary);
-  background: rgba(204,120,92,.10);
-  border: 1px solid rgba(204,120,92,.22);
+  background: rgba(0,144,207,.10);
+  border: 1px solid rgba(0,144,207,.22);
   padding: 2px 10px;
   border-radius: var(--r-pill);
   display: inline-block;
@@ -125,7 +125,7 @@
 .ship-name {
   font-family: var(--serif);
   font-size: 24px;
-  font-weight: 400;
+  font-weight: 700;
   color: var(--ink);
   margin-bottom: 10px;
   line-height: 1.2;
@@ -185,8 +185,8 @@
   font-size: 15px; font-weight: 700;
   flex-shrink: 0;
 }
-.mod-badge-a { background: rgba(93,184,166,.15); color: var(--teal); }
-.mod-badge-b { background: rgba(204,120,92,.12); color: var(--primary); }
+.mod-badge-a { background: rgba(0,145,107,.15); color: var(--teal); }
+.mod-badge-b { background: rgba(0,144,207,.12); color: var(--primary); }
 .mod-badge-c { background: rgba(217,119,6,.12);  color: #d97706; }
 .mod-title { font-size: 14px; font-weight: 600; color: var(--ink); margin-bottom: 2px; }
 .mod-sub   { font-size: 11px; color: var(--muted-soft); }
@@ -278,20 +278,20 @@
 .rate-bar-wrap { flex: 1; height: 18px; background: var(--surface-cream); border-radius: var(--r-sm); overflow: hidden; }
 .rate-bar { height: 100%; border-radius: var(--r-sm); transition: width .6s; display: flex; align-items: center; padding-left: 6px; }
 .rate-bar.mfn { background: rgba(140,130,120,.25); }
-.rate-bar.fta { background: rgba(93,184,166,.35); }
+.rate-bar.fta { background: rgba(0,145,107,.35); }
 .rate-pct { font-size: 11px; font-family: var(--mono); font-weight: 600; min-width: 36px; text-align: right; color: var(--ink); }
 
 /* ── Savings badge ──────────────────────────────────── */
 .savings-badge {
-  background: rgba(93,184,166,.10);
-  border: 1px solid rgba(93,184,166,.25);
+  background: rgba(0,145,107,.10);
+  border: 1px solid rgba(0,145,107,.25);
   border-radius: var(--r-lg);
   padding: 14px 16px;
   text-align: center;
   margin-bottom: 14px;
 }
 .savings-label { font-size: 10.5px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 4px; }
-.savings-amount { font-family: var(--serif); font-size: 32px; font-weight: 400; color: var(--teal); line-height: 1; }
+.savings-amount { font-family: var(--serif); font-size: 32px; font-weight: 700; color: var(--teal); line-height: 1; }
 .savings-sub { font-size: 11px; color: var(--muted-soft); margin-top: 3px; }
 
 /* ── FTA checklist ──────────────────────────────────── */
@@ -412,7 +412,7 @@
         <div class="logo-mark">
           <svg viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M7.5 1v2M7.5 12v2M1 7.5h2M12 7.5h2M2.87 2.87l1.41 1.41M10.72 10.72l1.41 1.41M12.13 2.87l-1.41 1.41M4.28 10.72l-1.41 1.41" stroke="#a09d96" stroke-width="1.4" stroke-linecap="round"/>
-            <circle cx="7.5" cy="7.5" r="2" fill="#cc785c"/>
+            <circle cx="7.5" cy="7.5" r="2" fill="#0090cf"/>
           </svg>
         </div>
         <span class="logo-wordmark">NEXA Trade AI</span>
@@ -852,5 +852,6 @@
 
 <script src="js/api.js"></script>
 <script src="js/app.js"></script>
+<script src="js/chatbox.js"></script>
 </body>
 </html>

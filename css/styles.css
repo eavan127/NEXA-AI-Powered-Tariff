@@ -1,36 +1,36 @@
 /* ================================================================
    Jabil AI Tariff Calculation Engine — Styles
-   Design system: warm cream canvas, coral CTA, serif display type
+   Design system: Jabil corporate navy/blue, clean sans, white canvas
    ================================================================ */
 
 /* ── Design tokens ──────────────────────────────────────────────── */
 :root {
-  /* Colors */
-  --primary:        #cc785c;
-  --primary-active: #a9583e;
-  --ink:            #141413;
-  --body:           #3d3d3a;
-  --body-strong:    #252523;
-  --muted:          #6c6a64;
-  --muted-soft:     #8e8b82;
-  --hairline:       #e6dfd8;
-  --hairline-soft:  #ebe6df;
-  --canvas:         #faf9f5;
-  --surface-soft:   #f5f0e8;
-  --surface-card:   #efe9de;
-  --surface-cream:  #e8e0d2;
-  --surface-dark:   #181715;
+  /* Colors — sourced from jabil.com brand palette */
+  --primary:        #0090cf;
+  --primary-active: #0164a1;
+  --ink:            #002b49;
+  --body:           #334f6a;
+  --body-strong:    #1c3a52;
+  --muted:          #576d84;
+  --muted-soft:     #8298ab;
+  --hairline:       #dbe5ee;
+  --hairline-soft:  #e8eef4;
+  --canvas:         #ffffff;
+  --surface-soft:   #f3f7fa;
+  --surface-card:   #e8f0f6;
+  --surface-cream:  #dfe9f1;
+  --surface-dark:   #002b49;
   --on-primary:     #ffffff;
-  --on-dark:        #faf9f5;
-  --on-dark-soft:   #a09d96;
-  --teal:           #5db8a6;
+  --on-dark:        #ffffff;
+  --on-dark-soft:   #9fb6c8;
+  --teal:           #00916b;
   --amber:          #e8a55a;
-  --success:        #5db872;
+  --success:        #00916b;
   --warning:        #d4a017;
   --error:          #c64545;
 
   /* Typography */
-  --serif: 'Cormorant Garamond', 'Tiempos Headline', Georgia, serif;
+  --serif: 'Inter', system-ui, sans-serif;
   --sans:  'Inter', system-ui, sans-serif;
   --mono:  'JetBrains Mono', ui-monospace, monospace;
 
@@ -302,7 +302,7 @@ input, select, textarea { font-family: var(--sans); }
 .page-title {
   font-family: var(--serif);
   font-size: 28px;
-  font-weight: 400;
+  font-weight: 700;
   line-height: 1.2;
   letter-spacing: -0.3px;
   color: var(--ink);
@@ -374,7 +374,7 @@ input, select, textarea { font-family: var(--sans); }
 .kpi-val {
   font-family: var(--serif);
   font-size: 34px;
-  font-weight: 400;
+  font-weight: 700;
   line-height: 1;
   letter-spacing: -0.5px;
   color: var(--ink);
@@ -426,10 +426,10 @@ input, select, textarea { font-family: var(--sans); }
   padding: 3px 10px;
   border-radius: var(--r-pill);
 }
-.pill-processing { background: rgba(93,184,166,.12); color: var(--teal); }
-.pill-approved   { background: rgba(93,184,102,.12); color: var(--success); }
+.pill-processing { background: rgba(0,145,107,.12); color: var(--teal); }
+.pill-approved   { background: rgba(0,145,107,.12); color: var(--success); }
 .pill-flagged    { background: rgba(198,69,69,.10);  color: var(--error); }
-.pill-submitted  { background: rgba(93,184,166,.18); color: var(--teal); font-weight: 600; }
+.pill-submitted  { background: rgba(0,145,107,.18); color: var(--teal); font-weight: 600; }
 
 /* ── Progress ───────────────────────────────────────────────────── */
 .progress-wrap {
@@ -485,8 +485,8 @@ input, select, textarea { font-family: var(--sans); }
   cursor: pointer;
 }
 .bulk-btn:hover {
-  background: rgba(93,184,166,.07);
-  border-color: rgba(93,184,166,.35);
+  background: rgba(0,145,107,.07);
+  border-color: rgba(0,145,107,.35);
 }
 
 /* ── Table ──────────────────────────────────────────────────────── */
@@ -521,7 +521,7 @@ input, select, textarea { font-family: var(--sans); }
 .tbl-row:last-child { border-bottom: none; }
 .tbl-row:hover { background: var(--surface-soft); }
 .tbl-row.sel {
-  background: rgba(204,120,92,.04);
+  background: rgba(0,144,207,.04);
   border-left: 2px solid var(--primary);
   padding-left: calc(var(--sp-lg) - 2px);
 }
@@ -548,7 +548,7 @@ input, select, textarea { font-family: var(--sans); }
   padding: 2px 8px;
   border-radius: var(--r-sm);
 }
-.fta-cptpp { background: rgba(93,184,166,.12); color: var(--teal); }
+.fta-cptpp { background: rgba(0,145,107,.12); color: var(--teal); }
 .fta-mfn   { background: var(--surface-card);  color: var(--muted); }
 .fta-other { background: rgba(232,165,90,.12);  color: var(--amber); }
 
@@ -568,7 +568,7 @@ input, select, textarea { font-family: var(--sans); }
   transition: all 0.12s;
 }
 .ibt:hover        { background: var(--surface-card); color: var(--body); }
-.ibt.ok           { background: rgba(93,184,102,.1); border-color: rgba(93,184,102,.3); color: var(--success); }
+.ibt.ok           { background: rgba(0,145,107,.1); border-color: rgba(0,145,107,.3); color: var(--success); }
 .ibt.flag-it:hover { background: rgba(198,69,69,.07); border-color: rgba(198,69,69,.25); color: var(--error); }
 
 /* ── Detail panel ───────────────────────────────────────────────── */
@@ -622,7 +622,7 @@ input, select, textarea { font-family: var(--sans); }
 .fta-rate { font-family: var(--mono); color: var(--body); min-width: 34px; text-align: right; }
 .fta-save { font-size: 13px; color: var(--teal); min-width: 62px; text-align: right; }
 .fta-best-row {
-  background: rgba(93,184,166,.07);
+  background: rgba(0,145,107,.07);
   border-radius: var(--r-sm);
   padding: 8px;
   margin: 0 -8px;
@@ -679,10 +679,10 @@ input, select, textarea { font-family: var(--sans); }
   font-weight: 500;
   transition: all 0.12s;
 }
-.act-approve  { border-color: rgba(93,184,102,.35);  color: var(--success); background: rgba(93,184,102,.07); }
-.act-approve:hover  { background: rgba(93,184,102,.13); }
-.act-edit     { border-color: rgba(93,184,166,.30);  color: var(--teal);    background: rgba(93,184,166,.06); }
-.act-edit:hover     { background: rgba(93,184,166,.12); }
+.act-approve  { border-color: rgba(0,145,107,.35);  color: var(--success); background: rgba(0,145,107,.07); }
+.act-approve:hover  { background: rgba(0,145,107,.13); }
+.act-edit     { border-color: rgba(0,145,107,.30);  color: var(--teal);    background: rgba(0,145,107,.06); }
+.act-edit:hover     { background: rgba(0,145,107,.12); }
 .act-escalate { border-color: rgba(232,165,90,.30);  color: var(--amber);   background: rgba(232,165,90,.06); }
 .act-escalate:hover { background: rgba(232,165,90,.12); }
 
@@ -735,7 +735,7 @@ input, select, textarea { font-family: var(--sans); }
 }
 .tag-new { background: rgba(198,69,69,.10);   color: var(--error); }
 .tag-upd { background: rgba(212,160,23,.12);  color: var(--warning); }
-.tag-inf { background: rgba(93,184,166,.12);  color: var(--teal); }
+.tag-inf { background: rgba(0,145,107,.12);  color: var(--teal); }
 
 /* ── Modals ─────────────────────────────────────────────────────── */
 .overlay {
@@ -798,7 +798,7 @@ input, select, textarea { font-family: var(--sans); }
   height: 58px;
   border-radius: 50%;
   border: 2px solid var(--teal);
-  background: rgba(93,184,166,.10);
+  background: rgba(0,145,107,.10);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -809,7 +809,7 @@ input, select, textarea { font-family: var(--sans); }
 .success-title {
   font-family: var(--serif);
   font-size: 24px;
-  font-weight: 400;
+  font-weight: 600;
   letter-spacing: -0.3px;
   color: var(--ink);
   margin-bottom: 6px;
@@ -856,7 +856,7 @@ input, select, textarea { font-family: var(--sans); }
 .submit-stat-value {
   font-family: var(--serif);
   font-size: 32px;
-  font-weight: 400;
+  font-weight: 700;
   line-height: 1;
 }
 .submit-stat-value.teal { color: var(--teal); }
@@ -905,7 +905,7 @@ input, select, textarea { font-family: var(--sans); }
 .field select:focus,
 .field textarea:focus {
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(204,120,92,.10);
+  box-shadow: 0 0 0 3px rgba(0,144,207,.10);
 }
 .field textarea { resize: none; line-height: 1.5; }
 .field select {
@@ -1046,7 +1046,7 @@ input, select, textarea { font-family: var(--sans); }
   font-weight: 600;
   white-space: nowrap;
 }
-.st-approved { background: rgba(93,184,102,.1);  color: var(--success); }
+.st-approved { background: rgba(0,145,107,.1);  color: var(--success); }
 .st-flagged  { background: rgba(198,69,69,.1);   color: var(--error); }
 .st-pending  { background: rgba(232,165,90,.1);  color: var(--amber); }
 

@@ -1,6 +1,5 @@
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
-from apscheduler.triggers.interval import IntervalTrigger
 
 from config import settings
 
@@ -133,13 +132,13 @@ def start_scheduler(app) -> None:
         if settings.GAZETTE_ENABLED:
             scheduler.add_job(
                 monitor_gazette_rss,
-                trigger=IntervalTrigger(minutes=15),
+                trigger=CronTrigger(hour=4, minute=0),
                 id="monitor_gazette_rss",
                 name="Monitor Federal Gazette RSS",
                 replace_existing=True,
-                misfire_grace_time=300,
+                misfire_grace_time=3600,
             )
-            print("  ✓ monitor_gazette_rss  → every 15 minutes")
+            print("  ✓ monitor_gazette_rss  → daily 04:00")
         else:
             print("  ✗ monitor_gazette_rss  → DISABLED (GAZETTE_ENABLED=false)")
 

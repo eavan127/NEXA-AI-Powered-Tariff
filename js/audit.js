@@ -7,6 +7,75 @@ let activeShip  = 'all'
 
 /* ── Boot ────────────────────────────────────────────────────── */
 loadPage()
+loadSystemStatus()
+setInterval(loadSystemStatus, 15000)
+
+/* ── Compliance Manager — degraded-mode alerts ─────────────────── */
+async function loadSystemStatus() {
+  try {
+    const res = await fetch(`${API}/api/admin/system-status`)
+    const data = await res.json()
+    renderSystemStatus(data)
+  } catch (e) {
+    // backend offline — silently skip, main loadPage() already surfaces that error
+  }
+}
+
+function renderSystemStatus(data) {
+  const panel = $('cmAlertPanel')
+  if (!panel) return
+
+  const alerts = data.active_alerts || []
+  if (!data.degraded || !alerts.length) {
+    panel.style.display = 'none'
+    return
+  }
+
+  panel.style.display = 'block'
+  setText('cmAlertMeta', `${alerts.length} active · SAP write-back frozen`)
+
+  setHtml('cmAlertBody', `
+    <div class="alert-band" style="border-left-color:var(--error);margin-bottom:var(--sp-md)">
+      <i class="ti ti-lock alert-icon" style="color:var(--error)"></i>
+      <div class="alert-text">
+        <strong>Degraded mode active</strong> — AI classification is running on the local rules
+        engine and SAP write-back is locked until a Compliance Manager resolves the incident below.
+      </div>
+    </div>
+    ${alerts.map(a => `
+      <div class="audit-row" style="align-items:flex-start">
+        <i class="ti ${a.alert_type === 'prompt_injection' ? 'ti-shield-x' : 'ti-wifi-off'}"
+           style="color:var(--error);font-size:18px;margin-top:2px"></i>
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:600;color:var(--ink);margin-bottom:2px">
+            ${a.alert_type === 'prompt_injection' ? 'Prompt Injection Blocked' : 'Regulatory Feed Down'}
+            <span style="font-size:11px;color:var(--muted-soft);font-weight:400">· ${a.source}</span>
+          </div>
+          <div style="font-size:13px;color:var(--body);line-height:1.5">${a.message}</div>
+          <div style="font-size:11px;color:var(--muted-soft);margin-top:3px">${timeAgo(a.created_at)}</div>
+        </div>
+      </div>`).join('')}
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="btn btn-primary" onclick="resolveIncident()">
+        <i class="ti ti-check"></i> Resolve &amp; Restore AI Pipeline
+      </button>
+    </div>
+  `)
+}
+
+async function resolveIncident() {
+  try {
+    await fetch(`${API}/api/admin/resolve-incident`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ resolved_by: 'Compliance Manager', note: 'Resolved via Audit Trail dashboard' })
+    })
+    showToast('✓ Incident resolved — AI pipeline restored, SAP write-back unlocked')
+    loadSystemStatus()
+  } catch (e) {
+    showToast('Failed to resolve incident: ' + e.message, true)
+  }
+}
 
 async function loadPage() {
   try {

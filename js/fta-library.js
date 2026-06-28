@@ -4,7 +4,7 @@
 
 /* ── Static FTA metadata — 17 Malaysian FTAs ─────────────────── */
 const FTA_META = {
-  RCEP:    { full: 'Regional Comprehensive Economic Partnership', year: 2022, color: '#5db8a6',
+  RCEP:    { full: 'Regional Comprehensive Economic Partnership', year: 2022, color: '#00916b',
              desc: 'World\'s largest trading bloc. Covers 30% of global GDP and world population. Includes all major East Asian economies.',
              countries: ['🇻🇳 Vietnam', '🇨🇳 China', '🇯🇵 Japan', '🇰🇷 S. Korea', '🇦🇺 Australia', '🇳🇿 New Zealand', '🇮🇩 Indonesia', '🇹🇭 Thailand', '🇸🇬 Singapore', '🇵🇭 Philippines', '🇲🇲 Myanmar', '🇰🇭 Cambodia', '🇱🇦 Laos', '🇧🇳 Brunei'],
              roo: 'RVC ≥ 35% (RCEP formula) or CTC at heading level' },
@@ -12,7 +12,7 @@ const FTA_META = {
              desc: 'High-standard FTA covering goods, services, investment and IP. Excludes the US but covers key Asia-Pacific markets.',
              countries: ['🇦🇺 Australia', '🇧🇳 Brunei', '🇨🇦 Canada', '🇨🇱 Chile', '🇯🇵 Japan', '🇲🇽 Mexico', '🇳🇿 New Zealand', '🇵🇪 Peru', '🇸🇬 Singapore', '🇻🇳 Vietnam'],
              roo: 'RVC ≥ 40% (build-up) or CTC at subheading level' },
-  ACFTA:   { full: 'ASEAN-China Free Trade Area', year: 2005, color: '#cc785c',
+  ACFTA:   { full: 'ASEAN-China Free Trade Area', year: 2005, color: '#0090cf',
              desc: 'Eliminates tariffs on most goods. China is Malaysia\'s largest trading partner.',
              countries: ['🇨🇳 China'],
              roo: 'RVC ≥ 40% or CTC at heading level (CTH)' },
@@ -60,7 +60,7 @@ const FTA_META = {
              desc: 'Malaysia\'s only bilateral FTA with a Latin American country.',
              countries: ['🇨🇱 Chile'],
              roo: 'RVC ≥ 40% or CTC' },
-  MTFTA:   { full: 'Malaysia-Turkey Free Trade Agreement', year: 2015, color: '#cc785c',
+  MTFTA:   { full: 'Malaysia-Turkey Free Trade Agreement', year: 2015, color: '#0090cf',
              desc: 'Bilateral FTA covering goods. Turkey is an emerging market for Malaysian exports.',
              countries: ['🇹🇷 Turkey'],
              roo: 'RVC ≥ 40%' },
@@ -68,7 +68,7 @@ const FTA_META = {
              desc: 'Bilateral FTA with Australia. Complements AANZFTA with additional concessions.',
              countries: ['🇦🇺 Australia'],
              roo: 'RVC ≥ 40% or CTSH' },
-  AFTA:    { full: 'ASEAN Free Trade Area', year: 1993, color: '#5db8a6',
+  AFTA:    { full: 'ASEAN Free Trade Area', year: 1993, color: '#00916b',
              desc: 'Foundational ASEAN agreement. Uses CEPT (Common Effective Preferential Tariff) scheme for intra-ASEAN trade.',
              countries: ['🇮🇩 Indonesia', '🇹🇭 Thailand', '🇸🇬 Singapore', '🇵🇭 Philippines', '🇻🇳 Vietnam', '🇲🇲 Myanmar', '🇰🇭 Cambodia', '🇱🇦 Laos', '🇧🇳 Brunei'],
              roo: 'RVC ≥ 40% (ASEAN content)' },

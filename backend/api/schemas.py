@@ -42,3 +42,6 @@ class ReapproveRequest(BaseModel):
 class Case3ActionRequest(BaseModel):
     analyst_id: str = "JAMES_TAN"
     note: Optional[str] = ""
+
+class ChatbotQueryRequest(BaseModel):
+    message: str

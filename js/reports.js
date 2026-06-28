@@ -69,7 +69,7 @@ function renderSavingsChart(ships) {
   const maxSav = Math.max(...rows.map(r => r[1].saving), 1)
 
   const FTA_COLORS = {
-    RCEP: '#5db8a6', CPTPP: '#e8a55a', ACFTA: '#cc785c',
+    RCEP: '#00916b', CPTPP: '#e8a55a', ACFTA: '#0090cf',
     AKFTA: '#a09d96', AJCEP: '#6b8cba', MFN: '#8e8b82', None: '#e6dfd8'
   }
 
@@ -132,7 +132,7 @@ function renderOriginChart(ships) {
   const rows = Object.entries(byOrig).sort((a, b) => b[1] - a[1])
 
   const ORIG_COLORS = {
-    'Vietnam': '#5db8a6', 'China': '#cc785c',
+    'Vietnam': '#00916b', 'China': '#0090cf',
     'South Korea': '#a09d96', 'Taiwan': '#e8a55a', 'India': '#b85d5d'
   }
 
@@ -190,9 +190,9 @@ function renderConfidence(ships) {
   }
 
   const buckets = [
-    { label: '95–100%', min: 95, max: 100, color: '#5db8a6' },
+    { label: '95–100%', min: 95, max: 100, color: '#00916b' },
     { label: '85–94%',  min: 85, max: 94,  color: '#e8a55a' },
-    { label: '70–84%',  min: 70, max: 84,  color: '#cc785c' },
+    { label: '70–84%',  min: 70, max: 84,  color: '#0090cf' },
     { label: '< 70%',   min:  0, max: 69,  color: 'var(--error)' },
   ]
 
