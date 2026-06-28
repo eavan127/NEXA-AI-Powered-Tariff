@@ -172,6 +172,40 @@ CREATE TABLE IF NOT EXISTS system_alerts (
 );
 CREATE INDEX ON system_alerts(status);
 
+-- chat_history — NEXA Assistant conversation memory, backing a custom
+-- LangChain BaseChatMessageHistory (analytics/memory.py). Keyed by
+-- analyst_id (no real login system yet — see ANALYSTS dict in routes.py)
+-- so reopening the chatbox as the same analyst restores prior turns.
+CREATE TABLE IF NOT EXISTS chat_history (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    analyst_id  TEXT NOT NULL,
+    role        TEXT NOT NULL CHECK(role IN ('human','ai')),
+    content     TEXT NOT NULL,
+    created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX ON chat_history(analyst_id, created_at);
+
+-- training_examples — auto-generated whenever an analyst overrides
+-- Module A's HS code (see /api/shipments/{id}/override-hs in routes.py).
+-- Each override seeds one canonical example; qwen then generates a few
+-- paraphrased description variants for the same corrected HS code to
+-- enrich the few-shot set (is_augmented=true, source_example_id links
+-- back to the canonical row).
+CREATE TABLE IF NOT EXISTS training_examples (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    shipment_id         UUID REFERENCES shipments(id),
+    product_description TEXT NOT NULL,
+    ai_hs_code          TEXT,
+    ai_confidence       NUMERIC,
+    corrected_hs_code   TEXT NOT NULL,
+    correction_reason   TEXT,
+    is_augmented        BOOLEAN DEFAULT false,
+    source_example_id   UUID REFERENCES training_examples(id),
+    analyst_id          TEXT,
+    created_at          TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX ON training_examples(corrected_hs_code);
+
 -- pipeline_logs — ingestion event audit trail (hash checks, parse results)
 CREATE TABLE IF NOT EXISTS pipeline_logs (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),

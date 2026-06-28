@@ -1,3 +1,5 @@
+import json
+
 from fastapi import APIRouter, HTTPException, Request
 from api.schemas import (ProcessBatchRequest, ApproveRequest, RejectRequest,
                          OverrideHSRequest, DryRunPdfRequest,
@@ -198,9 +200,54 @@ async def resolve_incident(request: Request):
 async def chatbot_query(body: ChatbotQueryRequest, request: Request):
     try:
         from analytics.chat_analytics import answer_chat_query
+        from analytics import i18n
         supabase = request.app.state.supabase
         result = answer_chat_query(body.message, supabase, body.role)
+        result["sources_label"] = i18n.t(result.get("language", "en"), "sources_label")
         return {"status": "ok", **result}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/api/admin/training-data/export")
+async def export_training_data(request: Request):
+    """Downloads all auto-generated HS-classification training examples
+    (canonical overrides + qwen-paraphrased variants) as JSONL — one
+    fine-tuning/few-shot example per line."""
+    try:
+        supabase = request.app.state.supabase
+        res = supabase.table("training_examples").select("*") \
+            .order("created_at", desc=True).execute()
+
+        lines = []
+        for row in (res.data or []):
+            lines.append(json.dumps({
+                "description": row["product_description"],
+                "hs_code": row["corrected_hs_code"],
+                "ai_predicted_hs_code": row.get("ai_hs_code"),
+                "ai_confidence": row.get("ai_confidence"),
+                "is_augmented": row.get("is_augmented", False),
+                "correction_reason": row.get("correction_reason"),
+            }, ensure_ascii=False))
+
+        content = "\n".join(lines)
+        return Response(
+            content=content,
+            media_type="application/jsonl",
+            headers={"Content-Disposition": "attachment; filename=nexa_training_examples.jsonl"},
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/api/chatbot/history")
+async def chatbot_history(request: Request, role: str = "analyst"):
+    try:
+        from analytics.chat_analytics import ROLE_TO_ANALYST_ID
+        from analytics.memory import get_history
+        supabase = request.app.state.supabase
+        analyst_id = ROLE_TO_ANALYST_ID.get(role, "SARAH_LIM")
+        return {"status": "ok", "history": get_history(supabase, analyst_id)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -389,7 +436,7 @@ async def override_hs_code(shipment_id: str, request: Request):
             raise HTTPException(status_code=400, detail="hs_code and reason are required")
 
         supabase = request.app.state.supabase
-        ship = supabase.table("shipments").select("id") \
+        ship = supabase.table("shipments").select("id, product_description") \
             .eq("sap_shipment_id", shipment_id).single().execute()
         if not ship.data:
             raise HTTPException(status_code=404, detail="Shipment not found")
@@ -448,7 +495,24 @@ async def override_hs_code(shipment_id: str, request: Request):
         except Exception:
             pass
 
-        return {"status": "ok", "message": f"HS overridden to {hs_code}"}
+        # Step 6 — Training data generation (canonical + qwen-paraphrased examples)
+        training_result = {"canonical": False, "augmented": 0}
+        try:
+            from analytics.training_data import generate_training_examples
+            training_result = generate_training_examples(
+                supabase,
+                shipment_uuid=ship.data["id"],
+                product_description=ship.data.get("product_description", ""),
+                ai_hs_code=original_hs,
+                ai_confidence=original_confidence,
+                corrected_hs_code=hs_code,
+                correction_reason=reason,
+                analyst_id=ANALYST_ID,
+            )
+        except Exception as e:
+            print(f"[training_data] generation failed (non-fatal): {e}")
+
+        return {"status": "ok", "message": f"HS overridden to {hs_code}", "training_data": training_result}
     except HTTPException:
         raise
     except Exception as e:

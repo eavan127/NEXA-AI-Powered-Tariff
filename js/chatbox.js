@@ -190,6 +190,9 @@
         <button class="nexa-demo-btn resolve" data-action="resolve">
           <i class="ti ti-check"></i> Resolve Incident
         </button>
+        <a class="nexa-demo-btn" href="${API_BASE}/api/admin/training-data/export" download style="text-decoration:none">
+          <i class="ti ti-download"></i> Download Training Data (JSONL)
+        </a>
       </div>
     `
     document.body.appendChild(btn)
@@ -248,7 +251,12 @@
 
   function renderChart(chartImage) {
     if (!chartImage) return ''
-    return `<img src="${chartImage}" alt="Chart" style="display:block;width:100%;margin-top:10px;border-radius:var(--r-md);border:1px solid var(--hairline)">`
+    const filename = `nexa-chart-${Date.now()}.png`
+    return `
+      <a href="${chartImage}" download="${filename}" title="Click to download chart" style="display:block;margin-top:10px">
+        <img src="${chartImage}" alt="Chart" style="display:block;width:100%;border-radius:var(--r-md);border:1px solid var(--hairline)">
+      </a>
+      <div style="font-size:10px;color:var(--muted-soft);margin-top:3px"><i class="ti ti-download"></i> Click chart to download PNG</div>`
   }
 
   function renderStats(stats) {
@@ -269,9 +277,28 @@
     body.scrollTop = body.scrollHeight
   }
 
-  function renderCitations(citations) {
+  function renderCitations(citations, sourcesLabel) {
     if (!citations || !citations.length) return ''
-    return `<div class="nexa-citations"><b>Sources</b>${citations.map(c => `<div>• ${c}</div>`).join('')}</div>`
+    return `<div class="nexa-citations"><b>${sourcesLabel || 'Sources'}</b>${citations.map(c => `<div>• ${c}</div>`).join('')}</div>`
+  }
+
+  async function loadHistory(body, role) {
+    body.innerHTML = ''
+    try {
+      const res = await fetch(`${API_BASE}/api/chatbot/history?role=${role}`)
+      const data = await res.json()
+      const history = data.history || []
+      if (!history.length) {
+        appendMsg(body, 'bot',
+          "Hi, I'm the NEXA Assistant. Ask me about FTA duty savings, landed cost, or a savings " +
+          "forecast — e.g. \"what's our savings today\" or \"predict next week's savings\". " +
+          "Answers are framed for your selected role and cite their sources below.")
+        return
+      }
+      history.forEach(m => appendMsg(body, m.role === 'human' ? 'user' : 'bot', m.content.replace(/\n/g, '<br>')))
+    } catch {
+      appendMsg(body, 'bot', "Hi, I'm the NEXA Assistant. Ask me about FTA duty savings, landed cost, or a forecast.")
+    }
   }
 
   function init() {
@@ -281,17 +308,18 @@
     const input = panel.querySelector('#nexaChatInput')
     const send  = panel.querySelector('#nexaChatSend')
 
-    appendMsg(body, 'bot',
-      "Hi, I'm the NEXA Assistant. Ask me about FTA duty savings, landed cost, or a savings " +
-      "forecast — e.g. \"what's our savings today\" or \"predict next week's savings\". " +
-      "Answers are framed for your selected role and cite their sources below.")
+    loadHistory(body, getRole())
 
     const roleBtns = panel.querySelectorAll('.nexa-role-btn')
     function refreshRoleUI() {
       const role = getRole()
       roleBtns.forEach(b => b.classList.toggle('active', b.dataset.role === role))
     }
-    roleBtns.forEach(b => b.addEventListener('click', () => { setRole(b.dataset.role); refreshRoleUI() }))
+    roleBtns.forEach(b => b.addEventListener('click', () => {
+      setRole(b.dataset.role)
+      refreshRoleUI()
+      loadHistory(body, b.dataset.role)
+    }))
     refreshRoleUI()
 
     btn.addEventListener('click', () => panel.classList.toggle('open'))
@@ -317,7 +345,7 @@
         if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`)
         appendMsg(body, 'bot',
           (data.reply || 'No response.').replace(/\n/g, '<br>') +
-          renderChart(data.chart_image) + renderStats(data.stats) + renderCitations(data.citations))
+          renderChart(data.chart_image) + renderStats(data.stats) + renderCitations(data.citations, data.sources_label))
       } catch (e) {
         appendMsg(body, 'bot', `<span style="color:var(--error)">Couldn't reach NEXA backend: ${e.message}</span>`)
       } finally {

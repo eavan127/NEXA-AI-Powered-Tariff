@@ -1,14 +1,17 @@
 """
 chat_analytics.py — pandas/numpy-backed statistics for the NEXA chatbox,
-with qwen2.5:1.5b (via Ollama) used ONLY to phrase a role-appropriate
-framing sentence around facts that are already computed deterministically.
+orchestrated by LangChain + qwen2.5:1.5b (Ollama) for question
+understanding and role/language-aware framing.
 
 Design principle (matches the case study's own "Ethical AI vs Pure
 Automation" theme): the LLM never computes or states a number itself —
 every figure, chart, and citation is produced by pandas/numpy/SQL and
-appended in code. Qwen only adjusts tone for the audience (Analyst vs
-Compliance Manager). If Ollama is unreachable, the deterministic reply
-is used as-is — there is no silent gap in functionality.
+appended in code. Qwen is used for exactly two things, both non-numeric:
+  1. classifying intent + period from the raw question (intent_router.py)
+  2. a one-sentence role-appropriate framing intro, with any reply
+     containing a digit discarded outright (see _qwen_intro)
+If Ollama is unreachable, both fall back to deterministic logic — there
+is no silent functionality gap.
 
 NEXA is a cost-avoidance tool (tariff/duty calculation), not a revenue
 system — there is no "profit" column anywhere in the schema. The closest
@@ -17,6 +20,7 @@ so "profit" queries are answered with savings data and a note clarifying
 the distinction.
 """
 import base64
+import re
 from io import BytesIO
 
 import matplotlib
@@ -25,11 +29,18 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import pandas as pd
 import numpy as np
-import re
-
 import httpx
 
+from langchain_core.messages import HumanMessage, AIMessage
+
 from config import settings
+from analytics import i18n
+from analytics.intent_router import classify as classify_intent
+from analytics.memory import SupabaseChatMessageHistory
+
+# No real login system yet (see ANALYSTS dict in api/routes.py) — the
+# chatbox's Analyst/Manager role toggle doubles as the memory identity key.
+ROLE_TO_ANALYST_ID = {"analyst": "SARAH_LIM", "manager": "JAMES_TAN"}
 
 _NUMERIC_COLS = (
     "total_landed_cost_usd",
@@ -52,6 +63,8 @@ _ROLE_PROMPTS = {
         "operational detail. Write exactly one short sentence (max 25 words)."
     ),
 }
+
+_LANGUAGE_NAME = {"en": "English", "ms": "Bahasa Malaysia", "zh": "Mandarin Chinese"}
 
 
 # ── Data loading ───────────────────────────────────────────────────
@@ -91,7 +104,7 @@ def _mode_bucketed(series: pd.Series):
     return float(m.iloc[0]) if not m.empty else None
 
 
-def _by_day(df: pd.DataFrame, value_col: str) -> list[dict]:
+def _by_day(df: pd.DataFrame, value_col: str) -> list:
     grouped = (
         df.assign(day=df["created_at"].dt.date)
           .groupby("day")[value_col].sum()
@@ -103,16 +116,15 @@ def _by_day(df: pd.DataFrame, value_col: str) -> list[dict]:
 
 
 # ── Citations — deterministic, never LLM-generated ─────────────────
-def _internal_citation(table: str, count: int, df: pd.DataFrame) -> str:
+def _internal_citation(lang: str, table: str, count: int, df: pd.DataFrame) -> str:
     if df.empty or "created_at" not in df:
-        return f"Internal: {count} record(s) from `{table}` (Supabase, queried live)."
+        return i18n.t(lang, "citation_internal").format(count=count, table=table, start="-", end="-")
     start = df["created_at"].min().date()
     end = df["created_at"].max().date()
-    return (f"Internal: {count} record(s) from `{table}`, dated {start} to {end} "
-            "(Supabase, queried live).")
+    return i18n.t(lang, "citation_internal").format(count=count, table=table, start=start, end=end)
 
 
-def _external_citations_for_ftas(supabase, shipment_ids: list) -> list[str]:
+def _external_citations_for_ftas(lang: str, supabase, shipment_ids: list) -> list:
     """Looks up the source PDF + page for any FTA actually used by these
     shipments — only cites a document when one is genuinely on file."""
     if not shipment_ids:
@@ -128,9 +140,10 @@ def _external_citations_for_ftas(supabase, shipment_ids: list) -> list[str]:
         seen = {}
         for r in (rates.data or []):
             seen.setdefault(r["fta_name"], r)
+        tmpl = i18n.t(lang, "citation_external")
         return [
-            f"External: {fta} rate schedule — {r['pdf_source_url']}"
-            + (f" (p.{r['pdf_page_number']})" if r.get("pdf_page_number") else "")
+            tmpl.format(fta=fta, url=r["pdf_source_url"],
+                        page=f" (p.{r['pdf_page_number']})" if r.get("pdf_page_number") else "")
             for fta, r in seen.items()
         ]
     except Exception:
@@ -154,7 +167,7 @@ def _render_bar_chart_png(by_day: list, title: str) -> str | None:
     return _fig_to_data_uri(fig)
 
 
-def _render_forecast_chart_png(history: list, forecast: list, title: str) -> str | None:
+def _render_forecast_chart_png(history: list, forecast: list, title: str, legend_actual: str, legend_forecast: str) -> str | None:
     if not history:
         return None
     hist = pd.Series([d["value"] for d in history], index=[d["day"] for d in history])
@@ -166,8 +179,8 @@ def _render_forecast_chart_png(history: list, forecast: list, title: str) -> str
     combined.plot(kind="bar", ax=ax, color=colors, edgecolor="#576d84", width=0.65, legend=False)
     if len(hist) > 0:
         ax.axvline(len(hist) - 0.5, color="#576d84", linestyle="--", linewidth=1)
-    handles = [mpatches.Patch(color="#0090cf", label="Actual"),
-               mpatches.Patch(color="#e8a55a", label="Forecast (linear trend)")]
+    handles = [mpatches.Patch(color="#0090cf", label=legend_actual),
+               mpatches.Patch(color="#e8a55a", label=legend_forecast)]
     ax.legend(handles=handles, fontsize=8, frameon=False, loc="upper left")
     _style_axes(ax, fig, title)
     return _fig_to_data_uri(fig)
@@ -194,7 +207,9 @@ def _fig_to_data_uri(fig) -> str:
     return "data:image/png;base64," + base64.b64encode(buf.read()).decode("ascii")
 
 
-# ── Overview stats ──────────────────────────────────────────────────
+# ── Overview stats (the "tools" — plain deterministic functions, called
+# directly based on intent_router's classification rather than via an
+# autonomous agent loop; see intent_router.py docstring for why) ───────
 def _overview(df: pd.DataFrame, value_col: str) -> dict:
     if df.empty:
         return {"count": 0, "total": 0.0, "mean": 0.0, "median": 0.0,
@@ -221,13 +236,11 @@ def cost_overview(supabase, period: str = "all") -> dict:
     return _overview(df, "total_landed_cost_usd")
 
 
-# ── Forecast — linear trend over daily savings, projected forward ──
 def forecast_savings(supabase, horizon_days: int = 7) -> dict:
     """Simple linear regression (numpy.polyfit) over the daily savings
-    series, projected `horizon_days` forward. This is explicitly NOT a
-    sophisticated time-series model — it's a transparent trendline, and
-    the reply always says so. Predicting cannot go negative (savings
-    can't be less than $0)."""
+    series, projected `horizon_days` forward. Explicitly NOT a
+    sophisticated time-series model — a transparent trendline, and the
+    reply always says so. Cannot predict negative savings."""
     df = _load_landed_costs_df(supabase)
     by_day = _by_day(df, "fta_saving_usd") if not df.empty else []
 
@@ -265,16 +278,16 @@ def forecast_savings(supabase, horizon_days: int = 7) -> dict:
 _HAS_DIGIT = re.compile(r"\d")
 
 
-def _qwen_intro(role: str, facts_text: str) -> str | None:
-    """Asks qwen for a one-sentence, role-appropriate framing. The model is
-    instructed not to state any figures, but small models don't reliably
-    follow that — so any response containing a digit is discarded rather
-    than trusted. A small model restating a number it wasn't authoritative
-    over is exactly the failure mode this whole pipeline is designed to
-    avoid (see module docstring)."""
+def _qwen_intro(role: str, lang: str, facts_text: str) -> str | None:
+    """Asks qwen for a one-sentence, role- and language-appropriate
+    framing. Any response containing a digit is discarded rather than
+    trusted — small models don't reliably follow "don't state numbers,"
+    and a model restating a figure it isn't authoritative over is exactly
+    the failure mode this pipeline is designed to avoid."""
     role = role if role in _ROLE_PROMPTS else "analyst"
+    language_name = _LANGUAGE_NAME.get(lang, "English")
     prompt = (
-        f"{_ROLE_PROMPTS[role]}\n\n"
+        f"{_ROLE_PROMPTS[role]} Respond ONLY in {language_name}.\n\n"
         f"FACTS (for context only — do not state any number, dollar amount, "
         f"percentage, or count from these facts):\n{facts_text}\n\n"
         "Write only the framing sentence, nothing else — purely qualitative, no digits at all."
@@ -299,123 +312,117 @@ def _fmt_money(n) -> str:
     return f"${n:,.2f}"
 
 
-def _detect_period(text: str) -> str:
-    if "today" in text:
-        return "today"
-    if "week" in text:
-        return "week"
-    if "month" in text:
-        return "month"
-    return "all"
-
-
 # ── Main entry point ─────────────────────────────────────────────────
 def answer_chat_query(message: str, supabase, role: str = "analyst") -> dict:
-    """Routes a free-text chatbox message. Returns
-    {reply, chart_image, stats, citations, role}."""
-    text = (message or "").lower()
-    role = role if role in _ROLE_PROMPTS else "analyst"
+    """Routes a free-text chatbox message, then persists the turn to
+    LangChain memory (Supabase-backed — see memory.py) keyed by the
+    role-mapped analyst identity, so reopening the chatbox restores history."""
+    result = _route_chat_query(message, supabase, role)
+    try:
+        analyst_id = ROLE_TO_ANALYST_ID.get(role, "SARAH_LIM")
+        history = SupabaseChatMessageHistory(supabase, analyst_id)
+        history.add_messages([HumanMessage(content=message), AIMessage(content=result["reply"])])
+    except Exception:
+        pass  # memory is a convenience, not load-bearing — never break the chat on a write failure
+    return result
 
-    wants_forecast = any(w in text for w in
-        ("predict", "forecast", "projection", "what if", "next week", "next month", "trend", "future"))
-    wants_savings = any(w in text for w in
-        ("profit", "saving", "savings", "earn", "earning", "margin"))
-    wants_cost = any(w in text for w in
-        ("cost", "expense", "spend", "spending", "landed cost", "duty"))
+
+def _route_chat_query(message: str, supabase, role: str = "analyst") -> dict:
+    """Returns {reply, chart_image, stats, citations, role, language, intent_source}."""
+    role = role if role in _ROLE_PROMPTS else "analyst"
+    lang = i18n.detect_language(message)
+    classified = classify_intent(message)
+    intent, period = classified["intent"], classified["period"]
+    period_label = i18n.PERIOD_LABEL[lang][period]
 
     # ── Forecast ──────────────────────────────────────────────────
-    if wants_forecast:
+    if intent == "forecast":
         f = forecast_savings(supabase, horizon_days=7)
         if f.get("insufficient_data"):
             return {
-                "reply": ("Not enough historical data yet for a forecast (need at least 2 days "
-                           "with recorded savings). NEXA also doesn't track \"profit\" — the "
-                           "closest metric is FTA duty savings."),
-                "chart_image": None, "stats": f, "citations": [], "role": role,
+                "reply": i18n.t(lang, "forecast_insufficient"),
+                "chart_image": None, "stats": f, "citations": [],
+                "role": role, "language": lang, "intent_source": classified["source"],
             }
 
+        trend_label = i18n.TREND_LABEL[lang][f["trend"]]
         facts = (
             f"Linear trend over {f['count']} day(s) of historical FTA savings data: "
             f"{f['trend']}, slope ${f['slope_per_day']}/day. Projected savings over the next "
             f"{f['horizon_days']} days: {_fmt_money(f['predicted_total'])}."
         )
-        intro = _qwen_intro(role, facts)
-        deterministic = (
-            f"NEXA doesn't track \"profit\" — this is a projection of FTA duty savings, not revenue. "
-            f"Based on a linear trend over the last {f['count']} day(s) of data ({f['trend']}), "
-            f"projected savings for the next {f['horizon_days']} days: "
-            f"{_fmt_money(f['predicted_total'])}. This is a simple trendline extrapolation, not a "
-            "predictive model — treat it as directional, not a committed forecast."
+        intro = _qwen_intro(role, lang, facts)
+        deterministic = i18n.t(lang, "forecast_summary").format(
+            count=f["count"], trend=trend_label, horizon=f["horizon_days"],
+            predicted=_fmt_money(f["predicted_total"]),
         )
         reply = f"{intro}\n\n{deterministic}" if intro else deterministic
-        citations = ["Internal: linear regression (numpy.polyfit) over `landed_costs.fta_saving_usd`, "
-                     "grouped by day, computed live from Supabase."]
-        chart_image = _render_forecast_chart_png(f["history"], f["forecast"], "Savings Forecast (USD)")
-        return {"reply": reply, "chart_image": chart_image, "stats": f, "citations": citations, "role": role}
+        citations = [i18n.t(lang, "citation_forecast")]
+        chart_image = _render_forecast_chart_png(
+            f["history"], f["forecast"], i18n.t(lang, "chart_forecast_title"),
+            i18n.t(lang, "legend_actual"), i18n.t(lang, "legend_forecast"),
+        )
+        return {"reply": reply, "chart_image": chart_image, "stats": f, "citations": citations,
+                "role": role, "language": lang, "intent_source": classified["source"]}
 
     # ── Savings ───────────────────────────────────────────────────
-    if wants_savings:
-        period = _detect_period(text)
-        period_label = {"today": "today", "week": "the last 7 days", "month": "the last 30 days", "all": "all time"}[period]
+    if intent == "savings":
         df = _filter_period(_load_landed_costs_df(supabase), period)
         s = _overview(df, "fta_saving_usd")
 
         if s["count"] == 0:
             return {
-                "reply": (f"No landed-cost records found for {period_label}. NEXA tracks duty "
-                           "savings, not \"profit\" — this is a cost-avoidance tool, not a revenue system."),
-                "chart_image": None, "stats": s, "citations": [], "role": role,
+                "reply": i18n.t(lang, "savings_no_data").format(period=period_label),
+                "chart_image": None, "stats": s, "citations": [],
+                "role": role, "language": lang, "intent_source": classified["source"],
             }
 
         facts = (f"FTA duty savings for {period_label}: total {_fmt_money(s['total'])} across "
                  f"{s['count']} shipments, mean {_fmt_money(s['mean'])}, median {_fmt_money(s['median'])}.")
-        intro = _qwen_intro(role, facts)
-        deterministic = (
-            f"NEXA doesn't store \"profit\" — it's a cost-avoidance tool, so the closest metric is "
-            f"FTA duty savings. For {period_label}: {_fmt_money(s['total'])} saved across "
-            f"{s['count']} shipment(s). Mean {_fmt_money(s['mean'])} · Median {_fmt_money(s['median'])} · "
-            f"Mode {_fmt_money(s['mode']) if s['mode'] is not None else 'n/a'} per shipment."
+        intro = _qwen_intro(role, lang, facts)
+        deterministic = i18n.t(lang, "savings_summary").format(
+            period=period_label, total=_fmt_money(s["total"]), count=s["count"],
+            mean=_fmt_money(s["mean"]), median=_fmt_money(s["median"]),
+            mode=_fmt_money(s["mode"]) if s["mode"] is not None else "n/a",
         )
         reply = f"{intro}\n\n{deterministic}" if intro else deterministic
 
-        citations = [_internal_citation("landed_costs", s["count"], df)]
-        citations += _external_citations_for_ftas(supabase, df["shipment_id"].tolist())
+        citations = [_internal_citation(lang, "landed_costs", s["count"], df)]
+        citations += _external_citations_for_ftas(lang, supabase, df["shipment_id"].tolist())
 
-        chart_image = _render_bar_chart_png(s["by_day"], "FTA Savings by Day (USD)")
-        return {"reply": reply, "chart_image": chart_image, "stats": s, "citations": citations, "role": role}
+        chart_image = _render_bar_chart_png(s["by_day"], i18n.t(lang, "chart_savings_title"))
+        return {"reply": reply, "chart_image": chart_image, "stats": s, "citations": citations,
+                "role": role, "language": lang, "intent_source": classified["source"]}
 
     # ── Cost ──────────────────────────────────────────────────────
-    if wants_cost:
-        period = _detect_period(text)
-        period_label = {"today": "today", "week": "the last 7 days", "month": "the last 30 days", "all": "all time"}[period]
+    if intent == "cost":
         df = _filter_period(_load_landed_costs_df(supabase), period)
         s = _overview(df, "total_landed_cost_usd")
 
         if s["count"] == 0:
-            return {"reply": f"No landed-cost records found for {period_label}.",
-                     "chart_image": None, "stats": s, "citations": [], "role": role}
+            return {"reply": i18n.t(lang, "cost_no_data").format(period=period_label),
+                     "chart_image": None, "stats": s, "citations": [],
+                     "role": role, "language": lang, "intent_source": classified["source"]}
 
         facts = (f"Total landed cost for {period_label}: {_fmt_money(s['total'])} across "
                  f"{s['count']} shipments, mean {_fmt_money(s['mean'])}, median {_fmt_money(s['median'])}.")
-        intro = _qwen_intro(role, facts)
-        deterministic = (
-            f"Total landed cost for {period_label}: {_fmt_money(s['total'])} across {s['count']} "
-            f"shipment(s). Mean {_fmt_money(s['mean'])} · Median {_fmt_money(s['median'])} · "
-            f"Mode {_fmt_money(s['mode']) if s['mode'] is not None else 'n/a'} per shipment."
+        intro = _qwen_intro(role, lang, facts)
+        deterministic = i18n.t(lang, "cost_summary").format(
+            period=period_label, total=_fmt_money(s["total"]), count=s["count"],
+            mean=_fmt_money(s["mean"]), median=_fmt_money(s["median"]),
+            mode=_fmt_money(s["mode"]) if s["mode"] is not None else "n/a",
         )
         reply = f"{intro}\n\n{deterministic}" if intro else deterministic
 
-        citations = [_internal_citation("landed_costs", s["count"], df)]
-        citations += _external_citations_for_ftas(supabase, df["shipment_id"].tolist())
+        citations = [_internal_citation(lang, "landed_costs", s["count"], df)]
+        citations += _external_citations_for_ftas(lang, supabase, df["shipment_id"].tolist())
 
-        chart_image = _render_bar_chart_png(s["by_day"], "Landed Cost by Day (USD)")
-        return {"reply": reply, "chart_image": chart_image, "stats": s, "citations": citations, "role": role}
+        chart_image = _render_bar_chart_png(s["by_day"], i18n.t(lang, "chart_cost_title"))
+        return {"reply": reply, "chart_image": chart_image, "stats": s, "citations": citations,
+                "role": role, "language": lang, "intent_source": classified["source"]}
 
     return {
-        "reply": (
-            "I can answer questions about FTA duty savings, landed cost, or a savings forecast — try "
-            "\"what's our savings today\", \"show cost this month\", or \"predict next week's savings\". "
-            "NEXA doesn't track \"profit\" directly since it's a cost-avoidance tool, not a revenue P&L."
-        ),
-        "chart_image": None, "stats": None, "citations": [], "role": role,
+        "reply": i18n.t(lang, "fallback"),
+        "chart_image": None, "stats": None, "citations": [],
+        "role": role, "language": lang, "intent_source": classified["source"],
     }

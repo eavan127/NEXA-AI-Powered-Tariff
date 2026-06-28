@@ -17,3 +17,7 @@ openpyxl
 pandas
 numpy
 matplotlib
+langchain
+langchain-community
+langchain-ollama
+langdetect
