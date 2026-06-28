@@ -87,6 +87,13 @@ T = {
             "Internal: linear regression (numpy.polyfit) over `landed_costs.fta_saving_usd`, "
             "grouped by day, computed live from Supabase."
         ),
+        "report_no_data": "No landed-cost records found for {period} — there's nothing to put in a report yet.",
+        "report_summary": (
+            "Your combined report for {period} is ready: {savings_total} in FTA duty savings and "
+            "{cost_total} in total landed cost across {count} shipment(s), plus a 7-day savings "
+            "forecast. Download the PDF below."
+        ),
+        "citation_report": "Internal: savings, cost, and forecast sections computed live from `landed_costs` (Supabase); PDF rendered in English only.",
         "sources_label": "Sources",
         "chart_savings_title": "FTA Savings by Day (USD)",
         "chart_cost_title": "Landed Cost by Day (USD)",
@@ -133,6 +140,13 @@ T = {
             "Dalaman: regresi linear (numpy.polyfit) ke atas `landed_costs.fta_saving_usd`, "
             "dikumpulkan mengikut hari, dikira secara langsung daripada Supabase."
         ),
+        "report_no_data": "Tiada rekod kos pendaratan dijumpai untuk {period} — tiada apa untuk dimasukkan ke dalam laporan.",
+        "report_summary": (
+            "Laporan gabungan anda untuk {period} sudah sedia: {savings_total} penjimatan duti FTA dan "
+            "{cost_total} jumlah kos pendaratan merentasi {count} penghantaran, ditambah ramalan "
+            "penjimatan 7 hari. Muat turun PDF di bawah."
+        ),
+        "citation_report": "Dalaman: bahagian penjimatan, kos, dan ramalan dikira secara langsung daripada `landed_costs` (Supabase); PDF dipaparkan dalam Bahasa Inggeris sahaja.",
         "sources_label": "Sumber",
         "chart_savings_title": "Penjimatan Duti FTA Mengikut Hari (USD)",
         "chart_cost_title": "Kos Pendaratan Mengikut Hari (USD)",
@@ -175,6 +189,12 @@ T = {
             "内部来源：基于 `landed_costs.fta_saving_usd` 按天分组的线性回归（numpy.polyfit），"
             "实时计算自 Supabase。"
         ),
+        "report_no_data": "未找到{period}的到岸成本记录——目前没有可生成报告的数据。",
+        "report_summary": (
+            "您{period}的综合报告已准备就绪：共 {count} 笔货运，FTA 关税节省 {savings_total}，"
+            "总到岸成本 {cost_total}，并附有未来7天的节省预测。请在下方下载 PDF。"
+        ),
+        "citation_report": "内部来源：节省、成本与预测部分均实时计算自 `landed_costs`（Supabase）；PDF 仅以英文呈现。",
         "sources_label": "来源",
         "chart_savings_title": "每日FTA节省金额（美元）",
         "chart_cost_title": "每日到岸成本（美元）",

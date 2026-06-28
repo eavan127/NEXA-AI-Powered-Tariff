@@ -421,6 +421,41 @@ def _route_chat_query(message: str, supabase, role: str = "analyst") -> dict:
         return {"reply": reply, "chart_image": chart_image, "stats": s, "citations": citations,
                 "role": role, "language": lang, "intent_source": classified["source"]}
 
+    # ── Report (combined savings + cost + forecast PDF) ─────────────
+    if intent == "report":
+        # An unqualified "generate report" most plausibly means this month;
+        # only honor an explicit narrower/wider period if the user gave one.
+        report_period = period if period != "all" else "month"
+        report_period_label = i18n.PERIOD_LABEL[lang][report_period]
+
+        df = _filter_period(_load_landed_costs_df(supabase), report_period)
+        savings = _overview(df, "fta_saving_usd")
+        cost = _overview(df, "total_landed_cost_usd")
+
+        if savings["count"] == 0 and cost["count"] == 0:
+            return {
+                "reply": i18n.t(lang, "report_no_data").format(period=report_period_label),
+                "chart_image": None, "stats": None, "citations": [],
+                "role": role, "language": lang, "intent_source": classified["source"],
+                "report_available": False,
+            }
+
+        facts = (f"Combined report for {report_period_label}: {_fmt_money(savings['total'])} FTA "
+                 f"savings and {_fmt_money(cost['total'])} total landed cost across {savings['count']} shipments.")
+        intro = _qwen_intro(role, lang, facts)
+        deterministic = i18n.t(lang, "report_summary").format(
+            period=report_period_label, savings_total=_fmt_money(savings["total"]),
+            cost_total=_fmt_money(cost["total"]), count=savings["count"],
+        )
+        reply = f"{intro}\n\n{deterministic}" if intro else deterministic
+
+        citations = [_internal_citation(lang, "landed_costs", savings["count"], df), i18n.t(lang, "citation_report")]
+
+        return {"reply": reply, "chart_image": None, "stats": {"savings": savings, "cost": cost},
+                "citations": citations, "role": role, "language": lang,
+                "intent_source": classified["source"],
+                "report_available": True, "report_period": report_period}
+
     return {
         "reply": i18n.t(lang, "fallback"),
         "chart_image": None, "stats": None, "citations": [],

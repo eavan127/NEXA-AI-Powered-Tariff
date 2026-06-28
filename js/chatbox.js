@@ -95,6 +95,19 @@
     .nexa-role-btn.active { background: var(--teal); color: #fff; }
     .nexa-citations { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--hairline); font-size: 10.5px; color: var(--muted); line-height: 1.6; }
     .nexa-citations b { color: var(--ink); display: block; margin-bottom: 2px; }
+    .nexa-redirect-row { display: flex; gap: 8px; margin-top: 10px; }
+    .nexa-redirect-btn {
+      flex: 1; border: 1px solid var(--hairline); background: var(--canvas); color: var(--primary);
+      font-size: 12px; font-weight: 600; padding: 8px 10px; border-radius: var(--r-md); cursor: pointer;
+    }
+    .nexa-redirect-btn:hover { background: var(--surface-card); }
+    .nexa-redirect-btn.primary { background: var(--primary); color: #fff; border-color: var(--primary); }
+    .nexa-redirect-btn.primary:hover { background: var(--primary-active); }
+    .nexa-report-link {
+      display: flex; align-items: center; gap: 6px; margin-top: 10px; padding: 8px 12px;
+      background: var(--teal); color: #fff; border-radius: var(--r-md); text-decoration: none;
+      font-size: 12.5px; font-weight: 600; width: fit-content;
+    }
 
     /* ── Demo / incident-simulation controls ──────────────────── */
     #nexaDemoBtn {
@@ -282,6 +295,40 @@
     return `<div class="nexa-citations"><b>${sourcesLabel || 'Sources'}</b>${citations.map(c => `<div>• ${c}</div>`).join('')}</div>`
   }
 
+  function renderReportLink(data) {
+    if (!data.report_available) return ''
+    const url = `${API_BASE}/api/reports/monthly-pdf?period=${encodeURIComponent(data.report_period || 'month')}`
+    return `<a class="nexa-report-link" href="${url}" download="nexa-monthly-report.pdf"><i class="ti ti-file-download"></i> Download PDF Report</a>`
+  }
+
+  function renderAnswer(data) {
+    return (data.reply || 'No response.').replace(/\n/g, '<br>') +
+      renderChart(data.chart_image) + renderStats(data.stats) + renderCitations(data.citations, data.sources_label)
+  }
+
+  function appendChoice(body, data) {
+    const div = document.createElement('div')
+    div.className = 'nexa-msg bot'
+    div.innerHTML = `
+      <div>Got an answer ready — view it here, or open the full AI Assistant for a bigger view (charts render larger there)?</div>
+      ${renderReportLink(data)}
+      <div class="nexa-redirect-row">
+        <button class="nexa-redirect-btn" data-choice="stay">Stay here</button>
+        <button class="nexa-redirect-btn primary" data-choice="open">Open AI Assistant</button>
+      </div>
+    `
+    body.appendChild(div)
+    body.scrollTop = body.scrollHeight
+
+    div.querySelector('[data-choice="stay"]').addEventListener('click', () => {
+      div.remove()
+      appendMsg(body, 'bot', renderAnswer(data))
+    })
+    div.querySelector('[data-choice="open"]').addEventListener('click', () => {
+      window.location.href = 'chat.html'
+    })
+  }
+
   async function loadHistory(body, role) {
     body.innerHTML = ''
     try {
@@ -343,9 +390,7 @@
         })
         const data = await res.json()
         if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`)
-        appendMsg(body, 'bot',
-          (data.reply || 'No response.').replace(/\n/g, '<br>') +
-          renderChart(data.chart_image) + renderStats(data.stats) + renderCitations(data.citations, data.sources_label))
+        appendChoice(body, data)
       } catch (e) {
         appendMsg(body, 'bot', `<span style="color:var(--error)">Couldn't reach NEXA backend: ${e.message}</span>`)
       } finally {

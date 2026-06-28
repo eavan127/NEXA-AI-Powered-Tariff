@@ -11,6 +11,7 @@ from fastapi.responses import Response
 from reports.compliance_pdf import generate_compliance_pdf
 from reports.langchain_report import generate_narrative
 from reports.shipment_report_pdf import generate_formal_report_pdf
+from reports.monthly_report_pdf import generate_monthly_report_pdf
 from config import settings
 
 router = APIRouter()
@@ -714,6 +715,22 @@ async def download_compliance_pdf(shipment_id: str, request: Request):
         )
     except HTTPException:
         raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/api/reports/monthly-pdf")
+async def download_monthly_report_pdf(request: Request, period: str = "month"):
+    """Combined savings + cost + 7-day forecast PDF, triggered from the
+    NEXA chatbot's "report" intent (see analytics/chat_analytics.py)."""
+    try:
+        supabase = request.app.state.supabase
+        pdf_bytes = generate_monthly_report_pdf(supabase, period)
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={"Content-Disposition": "attachment; filename=nexa_monthly_report.pdf"}
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
