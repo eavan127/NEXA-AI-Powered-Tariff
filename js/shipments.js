@@ -243,21 +243,30 @@ async function doRunB(id, btn) {
   }
 }
 
-/* ── Bulk: run all pending ────────────────────────────────────── */
+/* ── Bulk: process all pending in batches of 5 (one click, auto-loop) ── */
 async function doBulk() {
   const pending = SHIPMENTS.filter(s => s.status === 'pending')
   if (!pending.length) { showToast('No pending shipments to process'); return }
-  showToast(`Running A + B for ${pending.length} shipment(s)…`)
+
+  const total = pending.length
+  const ids = pending.map(s => s.sap_shipment_id)
   let done = 0
-  for (const s of pending) {
-    const hasA = s.hs_classifications?.length > 0
-    if (!hasA) await runModuleA(s.sap_shipment_id).catch(() => {})
-    await runModuleB(s.sap_shipment_id).catch(() => {})
-    done++
-    showToast(`Progress: ${done}/${pending.length} processed…`)
+
+  showToast(`Starting: ${total} shipments, processing 5 at a time…`)
+
+  for (let i = 0; i < ids.length; i += 5) {
+    const batch = ids.slice(i, i + 5)
+    try {
+      await apiFetch('/api/admin/process-all', 'POST', { shipment_ids: batch })
+    } catch (e) {
+      showToast(`Batch error: ${e.message}`, true)
+    }
+    done += batch.length
+    await loadAll()
+    if (done < total) showToast(`Progress: ${done}/${total} processed…`)
   }
-  showToast(`✓ All ${pending.length} pending shipments processed`)
-  await loadAll()
+
+  showToast(`✓ All ${total} shipments processed`)
 }
 
 /* ── Submit Batch ─────────────────────────────────────────────── */

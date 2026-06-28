@@ -860,6 +860,35 @@ async function doApprove() {
   }
 }
 
+/* ── Generate Report ─────────────────────────────────────────── */
+async function doGenerateReport() {
+  if (!currentId) return
+  const btn = $('btnReport')
+  if (btn) {
+    btn.disabled = true
+    btn.innerHTML = '<i class="ti ti-loader-2 spin"></i> Generating…'
+  }
+  try {
+    const blob = await generateShipmentReport(currentId)
+    const url  = URL.createObjectURL(blob)
+    const a    = document.createElement('a')
+    a.href     = url
+    a.download = `report_${currentId}.pdf`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+    showToast(`✓ Report downloaded for ${currentId}`)
+  } catch (e) {
+    showToast('Report generation failed: ' + e.message, true)
+  } finally {
+    if (btn) {
+      btn.disabled = false
+      btn.innerHTML = '<i class="ti ti-file-description"></i> Generate Report'
+    }
+  }
+}
+
 /* ── Edit HS Code form ───────────────────────────────────────── */
 function toggleEditForm() {
   const container = $('inlineFormContainer')

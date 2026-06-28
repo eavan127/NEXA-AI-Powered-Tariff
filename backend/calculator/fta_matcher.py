@@ -162,7 +162,7 @@ def check_one_fta(
 
 
 # ── Main: check all applicable FTAs, pick lowest qualifying rate ──
-async def match_fta(shipment_id: str, supabase: Client) -> dict:
+def match_fta(shipment_id: str, supabase: Client) -> dict:
     try:
         ship_result = supabase.table("shipments").select(
             "id,sap_shipment_id,origin_country,supplier_rvc_pct,"

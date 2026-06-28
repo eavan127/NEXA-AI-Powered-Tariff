@@ -84,7 +84,7 @@ def compute_sku_costs(
     }
 
 
-async def calculate_landed_cost(shipment_id: str, supabase: Client) -> dict:
+def calculate_landed_cost(shipment_id: str, supabase: Client) -> dict:
     try:
         # Load shipment
         ship_res = supabase.table("shipments").select(

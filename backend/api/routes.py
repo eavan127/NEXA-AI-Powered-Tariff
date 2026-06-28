@@ -9,6 +9,9 @@ from classifier.hs_classifier import classify_hs_code
 from ingestion.sap_connector import submit_to_sap as write_duty_to_sap
 from fastapi.responses import Response
 from reports.compliance_pdf import generate_compliance_pdf
+from reports.langchain_report import generate_narrative
+from reports.shipment_report_pdf import generate_formal_report_pdf
+from config import settings
 
 router = APIRouter()
 
@@ -285,9 +288,10 @@ async def get_summary(request: Request):
 # ── Module A — HS Classification ──────────────────────────────────
 @router.post("/api/classify/{shipment_id}")
 async def classify_shipment(shipment_id: str, request: Request):
+    import asyncio
     try:
         supabase = request.app.state.supabase
-        result = classify_hs_code(shipment_id, supabase)
+        result = await asyncio.to_thread(classify_hs_code, shipment_id, supabase)
         return {
             "status": "ok",
             "shipment_id": shipment_id,
@@ -302,10 +306,11 @@ async def classify_shipment(shipment_id: str, request: Request):
 # ── Module B — FTA Match ──────────────────────────────────────────
 @router.post("/api/match-fta/{shipment_id}")
 async def match_fta_endpoint(shipment_id: str, request: Request):
+    import asyncio
     try:
         from calculator.fta_matcher import match_fta
         supabase = request.app.state.supabase
-        result = await match_fta(shipment_id, supabase)
+        result = await asyncio.to_thread(match_fta, shipment_id, supabase)
         return {"status": "ok", "data": result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -314,10 +319,11 @@ async def match_fta_endpoint(shipment_id: str, request: Request):
 # ── Module C — Landed Cost ────────────────────────────────────────
 @router.post("/api/calculate-landed-cost/{shipment_id}")
 async def calculate_landed_cost_endpoint(shipment_id: str, request: Request):
+    import asyncio
     try:
         from calculator.landed_cost import calculate_landed_cost
         supabase = request.app.state.supabase
-        result = await calculate_landed_cost(shipment_id, supabase)
+        result = await asyncio.to_thread(calculate_landed_cost, shipment_id, supabase)
         if "error" in result:
             raise HTTPException(status_code=400, detail=result["error"])
         return {"status": "ok", "data": result}
@@ -519,31 +525,51 @@ async def override_hs_code(shipment_id: str, request: Request):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# ── Layer 4: Submit Batch to SAP ──────────────────────────────────
+# ── Layer 4: Process batch ────────────────────────────────────────
 @router.post("/api/admin/process-all")
 async def process_all_pending(request: Request):
-    """Run classify → match-fta → landed-cost on every pending shipment."""
+    """Run classify → match-fta → landed-cost on a batch of shipment IDs in parallel.
+    Body: { "shipment_ids": ["SHIP001", ...] }  — if omitted, processes all pending.
+    """
+    import asyncio
     from classifier.hs_classifier import classify_hs_code
     from calculator.fta_matcher import match_fta
     from calculator.landed_cost import calculate_landed_cost
 
     supabase = request.app.state.supabase
-    ships = supabase.table("shipments").select("sap_shipment_id") \
-        .eq("status", "pending").execute()
+
+    body = {}
+    try:
+        body = await request.json()
+    except Exception:
+        pass
+
+    shipment_ids = body.get("shipment_ids") or []
+    if not shipment_ids:
+        ships = supabase.table("shipments").select("sap_shipment_id") \
+            .eq("status", "pending").execute()
+        shipment_ids = [row["sap_shipment_id"] for row in (ships.data or [])]
 
     results = {"processed": 0, "failed": 0, "errors": []}
-    for row in (ships.data or []):
-        sid = row["sap_shipment_id"]
-        try:
-            classify_hs_code(sid, supabase)
-            await match_fta(sid, supabase)
-            await calculate_landed_cost(sid, supabase)
+
+    async def process_one(sid: str):
+        # A → B → C must stay sequential per shipment (each depends on previous)
+        await asyncio.to_thread(classify_hs_code, sid, supabase)
+        await asyncio.to_thread(match_fta, sid, supabase)
+        await asyncio.to_thread(calculate_landed_cost, sid, supabase)
+
+    batch_results = await asyncio.gather(
+        *[process_one(sid) for sid in shipment_ids],
+        return_exceptions=True
+    )
+    for sid, outcome in zip(shipment_ids, batch_results):
+        if isinstance(outcome, Exception):
+            results["failed"] += 1
+            results["errors"].append({"id": sid, "error": str(outcome)})
+            print(f"[batch] {sid} FAILED: {outcome}")
+        else:
             results["processed"] += 1
             print(f"[batch] {sid} done")
-        except Exception as e:
-            results["failed"] += 1
-            results["errors"].append({"id": sid, "error": str(e)})
-            print(f"[batch] {sid} failed: {e}")
 
     return {"status": "ok", "results": results}
 
@@ -685,6 +711,51 @@ async def download_compliance_pdf(shipment_id: str, request: Request):
             headers={
                 "Content-Disposition": f"attachment; filename=compliance_{shipment_id}.pdf"
             }
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ── Layer 5: AI-Generated Formal Report ──────────────────────────
+@router.get("/api/shipments/{shipment_id}/generate-report")
+async def generate_shipment_report(shipment_id: str, request: Request):
+    import asyncio
+    try:
+        supabase = request.app.state.supabase
+
+        ship = supabase.table("shipments") \
+            .select("*, hs_classifications(*), fta_results(*), landed_costs(*)") \
+            .eq("sap_shipment_id", shipment_id).single().execute()
+        if not ship.data:
+            raise HTTPException(status_code=404, detail="Shipment not found")
+
+        audit = supabase.table("audit_trail").select("*") \
+            .eq("shipment_id", ship.data["id"]) \
+            .order("created_at").execute()
+
+        narrative = await asyncio.to_thread(
+            generate_narrative,
+            ship.data,
+            settings.OLLAMA_BASE_URL,
+            settings.OLLAMA_LLM_MODEL,
+        )
+
+        pdf_bytes = await asyncio.to_thread(
+            generate_formal_report_pdf,
+            ship.data,
+            audit.data or [],
+            narrative,
+        )
+
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition":
+                    f'attachment; filename="report_{shipment_id}.pdf"'
+            },
         )
     except HTTPException:
         raise
@@ -949,7 +1020,7 @@ async def recalculate_shipment(shipment_id: str, body: RecalculateRequest, reque
 
         # Re-run Module C
         from calculator.landed_cost import calculate_landed_cost
-        await calculate_landed_cost(shipment_id, supabase)
+        calculate_landed_cost(shipment_id, supabase)
 
         # Fetch freshly saved landed_costs row from DB (authoritative figures)
         new_lc_res = supabase.table("landed_costs").select("*") \
@@ -1022,7 +1093,7 @@ async def reapprove_regulatory(shipment_id: str, body: ReapproveRequest, request
                 supabase.table("fta_results").update({"mfn_rate_pct": alert["new_rate"]}) \
                     .eq("shipment_id", ship.data["id"]).execute()
                 from calculator.landed_cost import calculate_landed_cost
-                await calculate_landed_cost(shipment_id, supabase)
+                calculate_landed_cost(shipment_id, supabase)
 
             supabase.table("shipments").update({
                 "status":           "approved",
@@ -1149,7 +1220,7 @@ async def accept_new_rate(shipment_id: str, body: Case3ActionRequest, request: R
             supabase.table("fta_results").update({"mfn_rate_pct": alert["new_rate"]}) \
                 .eq("shipment_id", ship.data["id"]).execute()
             from calculator.landed_cost import calculate_landed_cost
-            await calculate_landed_cost(shipment_id, supabase)
+            calculate_landed_cost(shipment_id, supabase)
 
         supabase.table("shipments").update({"regulatory_flag": "new_rate_accepted"}) \
             .eq("sap_shipment_id", shipment_id).execute()

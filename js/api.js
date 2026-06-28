@@ -65,6 +65,16 @@ async function flagShipment(shipmentId) {
   return apiFetch(`/api/shipments/${shipmentId}/flag`, 'POST')
 }
 
+/* ── Report Download ──────────────────────────────────────────── */
+async function generateShipmentReport(shipmentId) {
+  const res = await fetch(`${API}/api/shipments/${shipmentId}/generate-report`)
+  if (!res.ok) {
+    const e = await res.json().catch(() => ({ detail: res.statusText }))
+    throw new Error(e.detail || `HTTP ${res.status}`)
+  }
+  return res.blob()
+}
+
 /* ── Human Validation ─────────────────────────────────────────── */
 async function overrideHSCode(shipmentId, hsCode, reason) {
   return apiFetch(`/api/shipments/${shipmentId}/override-hs`, 'POST', { hs_code: hsCode, reason })

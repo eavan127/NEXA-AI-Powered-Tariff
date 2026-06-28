@@ -6,6 +6,7 @@ class Settings(BaseSettings): #creating own class name and inherit from base set
     SUPABASE_URL: str
     SUPABASE_KEY: str 
     OLLAMA_BASE_URL: str = "http://localhost:11434"
+    OLLAMA_LLM_MODEL: str = "llama3.2"
     SAP_BASE_URL: str = ""
     SAP_USERNAME: str = ""
     SAP_PASSWORD: str = ""
