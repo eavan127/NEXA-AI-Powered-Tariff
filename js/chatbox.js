@@ -109,41 +109,6 @@
       font-size: 12.5px; font-weight: 600; width: fit-content;
     }
 
-    /* ── Demo / incident-simulation controls ──────────────────── */
-    #nexaDemoBtn {
-      position: fixed; bottom: 24px; left: 96px; z-index: 500;
-      width: 48px; height: 48px; border-radius: 50%;
-      background: var(--surface-dark); color: var(--amber); border: 2px solid var(--amber);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 20px; cursor: pointer;
-      box-shadow: 0 8px 24px rgba(0,43,73,.22);
-      transition: transform .15s;
-    }
-    #nexaDemoBtn:hover { transform: translateY(-2px); }
-    #nexaDemoBtn.degraded { color: #fff; background: var(--error); border-color: var(--error); animation: nexaPulse 1.4s ease-in-out infinite; }
-    @keyframes nexaPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(198,69,69,.45); } 50% { box-shadow: 0 0 0 8px rgba(198,69,69,0); } }
-    #nexaDemoPanel {
-      position: fixed; bottom: 84px; left: 96px; z-index: 500;
-      width: 300px; background: var(--canvas); border: 1px solid var(--hairline);
-      border-radius: var(--r-lg); box-shadow: 0 16px 48px rgba(0,43,73,.2);
-      display: none; overflow: hidden; font-family: var(--sans);
-    }
-    #nexaDemoPanel.open { display: block; }
-    #nexaDemoPanel .nexa-demo-head {
-      padding: 12px 14px; background: var(--surface-dark); color: #fff;
-      font-size: 12.5px; font-weight: 600; display: flex; align-items: center; gap: 6px;
-    }
-    #nexaDemoPanel .nexa-demo-body { padding: 12px; display: flex; flex-direction: column; gap: 8px; }
-    .nexa-demo-btn {
-      display: flex; align-items: center; gap: 8px; width: 100%;
-      padding: 9px 11px; border-radius: var(--r-md); border: 1px solid var(--hairline);
-      background: var(--surface-soft); color: var(--ink); font-size: 12.5px; font-weight: 500;
-      cursor: pointer; text-align: left;
-    }
-    .nexa-demo-btn:hover { background: var(--surface-card); }
-    .nexa-demo-btn.danger { color: var(--error); }
-    .nexa-demo-btn.resolve { color: var(--teal); border-color: rgba(0,145,107,.3); }
-    .nexa-demo-status { font-size: 11px; color: var(--muted); padding: 0 2px; line-height: 1.5; }
     `
     const tag = document.createElement('style')
     tag.textContent = css
@@ -154,7 +119,27 @@
     const btn = document.createElement('button')
     btn.id = 'nexaChatBtn'
     btn.title = 'Ask NEXA Assistant'
-    btn.innerHTML = '<i class="ti ti-message-chatbot"></i><span class="nexa-badge"></span>'
+    btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="36" height="36" fill="white">
+      <!-- antenna -->
+      <line x1="50" y1="10" x2="50" y2="22" stroke="white" stroke-width="4" stroke-linecap="round"/>
+      <circle cx="50" cy="7" r="5"/>
+      <!-- head -->
+      <rect x="22" y="22" width="56" height="42" rx="20" ry="20"/>
+      <!-- eyes -->
+      <circle cx="37" cy="40" r="6" fill="#003d6b"/>
+      <circle cx="63" cy="40" r="6" fill="#003d6b"/>
+      <!-- smile -->
+      <path d="M38 52 Q50 62 62 52" stroke="#003d6b" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+      <!-- left ear/headphone -->
+      <rect x="10" y="30" width="14" height="20" rx="7" ry="7"/>
+      <!-- right ear/headphone -->
+      <rect x="76" y="30" width="14" height="20" rx="7" ry="7"/>
+      <!-- headband -->
+      <path d="M17 35 Q17 14 50 14 Q83 14 83 35" stroke="white" stroke-width="5" fill="none" stroke-linecap="round"/>
+      <!-- mic arm -->
+      <path d="M24 50 Q14 60 18 72" stroke="white" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+      <circle cx="18" cy="75" r="5"/>
+    </svg><span class="nexa-badge"></span>`
 
     const panel = document.createElement('div')
     panel.id = 'nexaChatPanel'
@@ -182,84 +167,9 @@
     return { btn, panel }
   }
 
-  function buildDemoDom() {
-    const btn = document.createElement('button')
-    btn.id = 'nexaDemoBtn'
-    btn.title = 'Incident simulation (demo)'
-    btn.innerHTML = '<i class="ti ti-alert-triangle"></i>'
-
-    const panel = document.createElement('div')
-    panel.id = 'nexaDemoPanel'
-    panel.innerHTML = `
-      <div class="nexa-demo-head"><i class="ti ti-flask"></i> Incident Simulator (Demo)</div>
-      <div class="nexa-demo-body">
-        <div class="nexa-demo-status" id="nexaDemoStatus">Checking system status…</div>
-        <button class="nexa-demo-btn danger" data-action="feed-down">
-          <i class="ti ti-wifi-off"></i> Simulate Regulatory Feed Outage
-        </button>
-        <button class="nexa-demo-btn danger" data-action="prompt-injection">
-          <i class="ti ti-shield-x"></i> Simulate Prompt Injection
-        </button>
-        <button class="nexa-demo-btn resolve" data-action="resolve">
-          <i class="ti ti-check"></i> Resolve Incident
-        </button>
-        <a class="nexa-demo-btn" href="${API_BASE}/api/admin/training-data/export" download style="text-decoration:none">
-          <i class="ti ti-download"></i> Download Training Data (JSONL)
-        </a>
-      </div>
-    `
-    document.body.appendChild(btn)
-    document.body.appendChild(panel)
-    return { btn, panel }
-  }
-
   function toast(msg, isError) {
     if (typeof showToast === 'function') { showToast(msg, isError); return }
     if (isError) console.error(msg); else console.log(msg)
-  }
-
-  function initDemoControls() {
-    const { btn, panel } = buildDemoDom()
-    const statusEl = panel.querySelector('#nexaDemoStatus')
-
-    async function refreshStatus() {
-      try {
-        const res = await fetch(`${API_BASE}/api/admin/system-status`)
-        const data = await res.json()
-        btn.classList.toggle('degraded', !!data.degraded)
-        statusEl.innerHTML = data.degraded
-          ? `<strong style="color:var(--error)">⚠ Degraded mode active</strong> — ${data.active_alerts?.length || 0} alert(s), SAP write-back frozen.`
-          : '<span style="color:var(--teal)">✓ All systems nominal</span>'
-      } catch {
-        statusEl.textContent = "Can't reach backend."
-      }
-    }
-
-    btn.addEventListener('click', () => { panel.classList.toggle('open'); if (panel.classList.contains('open')) refreshStatus() })
-
-    panel.querySelectorAll('.nexa-demo-btn').forEach(b => {
-      b.addEventListener('click', async () => {
-        const action = b.dataset.action
-        const url = action === 'resolve'
-          ? `${API_BASE}/api/admin/resolve-incident`
-          : `${API_BASE}/api/admin/simulate-incident/${action}`
-        const opts = action === 'resolve'
-          ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ resolved_by: 'Compliance Manager', note: 'Resolved via demo control' }) }
-          : { method: 'POST' }
-        try {
-          const res = await fetch(url, opts)
-          const data = await res.json()
-          if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`)
-          toast(data.message || 'Done')
-          refreshStatus()
-        } catch (e) {
-          toast(`Incident simulator failed: ${e.message}`, true)
-        }
-      })
-    })
-
-    refreshStatus()
-    setInterval(refreshStatus, 15000)
   }
 
   function renderChart(chartImage) {
@@ -401,7 +311,6 @@
     send.addEventListener('click', sendMessage)
     input.addEventListener('keydown', e => { if (e.key === 'Enter') sendMessage() })
 
-    initDemoControls()
   }
 
   if (document.readyState === 'loading') {
