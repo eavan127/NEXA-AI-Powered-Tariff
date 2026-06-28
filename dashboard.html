@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NEXA · Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.2.0/tabler-icons.min.css">
+<link rel="stylesheet" href="css/styles.css">
+<link rel="stylesheet" href="css/redesign.css">
+</head>
+<body data-page="dashboard">
+<div class="app">
+
+  <!-- shell.js fills these -->
+  <aside class="sidebar"></aside>
+
+  <div class="main">
+    <div class="topbar"></div>
+
+    <div class="content">
+
+      <div class="lookup-head">
+        <div>
+          <h1>Dashboard</h1>
+          <p>Live overview of batch progress, AI performance, customs activity and FX.</p>
+        </div>
+        <div class="lookup-head-actions">
+          <button class="btn btn-ghost" onclick="window.NEXA_DASH && NEXA_DASH.refresh()"><i class="ti ti-refresh"></i> Refresh</button>
+        </div>
+      </div>
+
+      <!-- Row 1: Batch progress rings -->
+      <section class="dash-card">
+        <div class="dash-card-head">
+          <h2><i class="ti ti-progress-check"></i> Batch Progress</h2>
+          <span class="dash-sub" id="batchSub">—</span>
+        </div>
+        <div class="ring-row" id="ringRow">
+          <div class="dash-loading">Loading batches…</div>
+        </div>
+      </section>
+
+      <!-- Row 2: KPI big box + AI performance -->
+      <div class="dash-grid-2">
+        <section class="dash-card">
+          <div class="dash-card-head">
+            <h2><i class="ti ti-layout-dashboard"></i> Key Metrics</h2>
+            <span class="dash-sub">Across all shipments</span>
+          </div>
+          <div class="kpi-mini-grid" id="kpiMiniGrid">
+            <div class="dash-loading">Loading…</div>
+          </div>
+        </section>
+
+        <section class="dash-card">
+          <div class="dash-card-head">
+            <h2><i class="ti ti-brain"></i> AI Performance</h2>
+            <span class="dash-sub">Avg classification confidence — today</span>
+          </div>
+          <div class="ai-perf">
+            <div class="ai-score">
+              <div class="ai-score-num" id="aiScoreNum">—</div>
+              <div class="ai-score-label">avg score today</div>
+              <div class="ai-score-meta" id="aiScoreMeta">—</div>
+            </div>
+            <div class="ai-chart-wrap"><canvas id="aiChart"></canvas></div>
+          </div>
+        </section>
+      </div>
+
+      <!-- Row 3: Regulation updates + Currency -->
+      <div class="dash-grid-2">
+        <section class="dash-card">
+          <div class="dash-card-head">
+            <h2><i class="ti ti-gavel"></i> Recent Customs Updates</h2>
+            <span class="dash-sub" id="regSub">Tariff &amp; regulation changes</span>
+          </div>
+          <div class="reg-list" id="regList">
+            <div class="dash-loading">Loading alerts…</div>
+          </div>
+        </section>
+
+        <section class="dash-card">
+          <div class="dash-card-head">
+            <h2><i class="ti ti-currency-dollar"></i> Live Currency</h2>
+            <span class="dash-sub" id="fxSub">base USD</span>
+          </div>
+          <div class="fx-list" id="fxList">
+            <div class="dash-loading">Fetching rates…</div>
+          </div>
+        </section>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- toast (used by shared helpers) -->
+<div id="toast" class="toast"><span id="toastMsg"></span></div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="js/shared.js"></script>
+<script src="js/api.js"></script>
+<script src="js/shell.js"></script>
+<script src="js/dashboard.js"></script>
+<script src="js/chatbox.js"></script>
+</body>
+</html>

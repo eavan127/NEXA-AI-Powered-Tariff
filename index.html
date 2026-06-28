@@ -8,6 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.2.0/tabler-icons.min.css">
 <link rel="stylesheet" href="css/styles.css">
+<link rel="stylesheet" href="css/redesign.css">
 <style>
 /* ── Search hero ─────────────────────────────────────── */
 .search-hero {
@@ -469,51 +470,23 @@
       <!-- ── VIEW: SHIPMENT LOOKUP ─────────────────────── -->
       <div id="viewLookup">
 
-        <!-- Search Hero -->
-        <div class="search-hero">
-          <div class="search-eyebrow">NEXA AI · Use Case 2 · Malaysia → Jabil</div>
-          <div class="search-headline">What is the landed cost of<br><span>shipment</span>?</div>
-          <div class="search-input-row">
-            <input id="searchInput" class="search-input" type="text"
-              placeholder="Enter Shipment ID — e.g. SHIP001"
-              onkeydown="if(event.key==='Enter') analyzeShipment()">
-            <button class="btn btn-primary search-btn" onclick="analyzeShipment()">
-              <i class="ti ti-search"></i> Analyze
-            </button>
+        <!-- Lookup page header -->
+        <div class="lookup-head">
+          <div>
+            <h1>AI Tariff Filters</h1>
+            <p>Build a filter template, review the matching shipments, and export to Excel. Add more filters to compare result sets side by side.</p>
           </div>
-          <div class="quick-chips">
-            <span style="font-size:11px;color:var(--on-dark-soft);margin-right:4px">Quick select:</span>
-            <span class="chip" onclick="quickSearch('SHIP001')">SHIP001 · Vietnam PCB</span>
-            <span class="chip" onclick="quickSearch('SHIP002')">SHIP002 · China Motor</span>
-            <span class="chip" onclick="quickSearch('SHIP003')">SHIP003 · Vietnam Alu</span>
-            <span class="chip" onclick="quickSearch('SHIP004')">SHIP004 · Taiwan DRAM</span>
-            <span class="chip" onclick="quickSearch('SHIP005')">SHIP005 · Korea Lens</span>
+          <div class="lookup-head-actions">
+            <button class="btn btn-ghost" id="newFilterBtn"><i class="ti ti-plus"></i> New Filter</button>
+            <button class="btn btn-ghost" onclick="loadShipments && loadShipments()"><i class="ti ti-refresh"></i> Refresh</button>
           </div>
         </div>
 
-        <!-- KPI Summary -->
-        <div class="kpi-row">
-          <div class="kpi">
-            <div class="kpi-label">Total Shipments</div>
-            <div class="kpi-val" id="kpiTotal">—</div>
-            <div class="kpi-note"><span id="kpiPending">—</span> pending review</div>
-          </div>
-          <div class="kpi teal">
-            <div class="kpi-label">Total FTA Savings</div>
-            <div class="kpi-val" id="kpiSaving">—</div>
-            <div class="kpi-note">duty saved across all shipments</div>
-          </div>
-          <div class="kpi coral">
-            <div class="kpi-label">Module A Coverage</div>
-            <div class="kpi-val" id="kpiModA">—</div>
-            <div class="kpi-note">HS codes classified by AI</div>
-          </div>
-          <div class="kpi red">
-            <div class="kpi-label">Flagged for Review</div>
-            <div class="kpi-val" id="kpiFlagged">—</div>
-            <div class="kpi-note">require analyst action</div>
-          </div>
-        </div>
+        <!-- hidden input keeps app.js deep-link / analysis helpers working -->
+        <input id="searchInput" type="hidden">
+
+        <!-- Stacked filter blocks rendered by lookup-filters.js -->
+        <div id="filterBlocks"></div>
 
         <!-- ── RESULT SECTION (hidden until search) ── -->
         <div id="resultSection" style="display:none">
@@ -853,8 +826,12 @@
   <button id="toastClose" title="Close" onclick="clearTimeout(this.parentElement._autoClose);this.parentElement.classList.remove('show')">&times;</button>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="js/data.js"></script>
 <script src="js/api.js"></script>
 <script src="js/app.js"></script>
+<script src="js/shell.js"></script>
+<script src="js/lookup-filters.js"></script>
 <script src="js/chatbox.js"></script>
 </body>
 </html>
